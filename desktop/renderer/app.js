@@ -241,8 +241,13 @@ document.querySelectorAll(".nav-btn").forEach((btn) => {
 
 document.getElementById("btn-start").onclick = async () => {
   try {
+    toast("Starting… Chrome may relaunch once to load the extension");
     const s = await window.chromeMcp.post("/control/start");
-    toast("Start All: " + labelFor(s.overall));
+    toast(
+      s.overall === "ready"
+        ? "Ready — extension connected"
+        : "Start All: " + labelFor(s.overall) + (s.lastError ? " — " + s.lastError : ""),
+    );
     refreshHome();
   } catch (e) {
     toast("Start failed: " + e.message);
@@ -284,9 +289,22 @@ document.getElementById("btn-pair-create").onclick = async () => {
   toast("Paired " + name);
 };
 document.getElementById("btn-connect-chrome").onclick = async () => {
-  const p = await window.chromeMcp.extensionPath();
-  await window.chromeMcp.openPath(p);
-  toast("Opened extension folder — Load unpacked in Chrome");
+  try {
+    toast("Connecting… Chrome will relaunch if needed");
+    const r = await window.chromeMcp.post("/control/connect-chrome");
+    if (r.ok) {
+      toast(
+        r.relaunched
+          ? "Extension connected (Chrome relaunched)"
+          : "Extension connected",
+      );
+    } else {
+      toast((r.repairAction || r.error || "Connect failed") + (r.steps ? " · " + r.steps.slice(-1)[0] : ""));
+    }
+    refreshHome();
+  } catch (e) {
+    toast("Connect failed: " + e.message);
+  }
 };
 document.getElementById("btn-open-ext").onclick = async () => {
   await window.chromeMcp.openPath(await window.chromeMcp.extensionPath());

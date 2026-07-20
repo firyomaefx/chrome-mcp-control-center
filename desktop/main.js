@@ -98,6 +98,11 @@ function startRuntime() {
   runtimeStatus = "starting";
   send("runtime:status", { status: runtimeStatus, message: "Starting services…" });
 
+  // Stage extension source path for connectChrome inside the runtime process
+  const packagedExt = app.isPackaged
+    ? path.join(process.resourcesPath, "extension")
+    : path.join(__dirname, "..", "extension");
+
   // Default: real extension HTTP bridge. Set CHROME_MCP_MOCK=1 only for offline demo.
   const useMock = process.env.CHROME_MCP_MOCK === "1";
   const args = useMock ? ["serve-http", "--mock"] : ["serve-http"];
@@ -108,6 +113,7 @@ function startRuntime() {
       CHROME_MCP_DATA_DIR: dataDir(),
       CHROME_MCP_HTTP_PORT: String(HTTP_PORT),
       CHROME_MCP_MOCK: useMock ? "1" : "0",
+      CHROME_MCP_EXTENSION_SRC: packagedExt,
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -233,6 +239,9 @@ app.whenReady().then(() => {
   ipcMain.handle("shell:openExternal", async (_e, url) => shell.openExternal(url));
   ipcMain.handle("app:dataDir", async () => dataDir());
   ipcMain.handle("app:extensionPath", async () => {
+    // Prefer staged path under userData (writable, used by --load-extension)
+    const staged = path.join(dataDir(), "extension");
+    if (fs.existsSync(path.join(staged, "manifest.json"))) return staged;
     if (app.isPackaged) return path.join(process.resourcesPath, "extension");
     return path.join(__dirname, "..", "extension");
   });

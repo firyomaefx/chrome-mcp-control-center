@@ -1,6 +1,19 @@
 # Changelog
 
-## 1.0.1 — 2026-07-21 (Loop 2)
+## 1.0.1 — 2026-07-21 (Connect CAPA)
+
+### Fixed (critical)
+
+- **Root cause:** Connect Chrome only opened a folder; extension never auto-loaded → permanent “Extension not connected”.
+- **Connect Chrome / Start All** now: stage extension → repair host → **auto-relaunch Chrome with `--load-extension`** on the real profile → wait for HTTP register → Ready.
+- Health Ready uses **HTTP bridge** (Native Messaging no longer hard-blocks Ready when extension is connected).
+- Extension SW: faster retry, port scan, alarms keep-alive.
+
+### Release
+
+- Portable + NSIS rebuild for v1.0.1
+
+## 1.0.0 — 2026-07-21 (Loop 2)
 
 ### Added
 

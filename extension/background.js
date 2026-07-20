@@ -1,11 +1,12 @@
 /**
  * Chrome MCP extension — HTTP loopback control plane + optional Native Messaging.
- * Primary path: http://127.0.0.1:<port>/extension/* (same process as Control Center).
+ * Registers immediately, retries fast, alarms keep service worker alive.
  */
 
 const HOST_NAME = "com.chromemcp.controlcenter";
 const MAX_TEXT = 200_000;
 const DEFAULT_PORT = 18787;
+const PORT_CANDIDATES = [18787, 18788, 18789, 19887];
 
 let httpBase = `http://127.0.0.1:${DEFAULT_PORT}`;
 let connected = false;
@@ -55,17 +56,44 @@ async function httpJson(pathname, opts = {}) {
   }
 }
 
+async function tryRegisterOnPort(port) {
+  httpBase = `http://127.0.0.1:${port}`;
+  const r = await httpJson("/extension/register", {
+    method: "POST",
+    body: JSON.stringify({ extensionId: chrome.runtime.id }),
+  });
+  if (r && r.ok) {
+    await chrome.storage.local.set({ httpPort: port });
+    return true;
+  }
+  return false;
+}
+
 async function register() {
   try {
     await loadPort();
-    const r = await httpJson("/extension/register", {
-      method: "POST",
-      body: JSON.stringify({ extensionId: chrome.runtime.id }),
-    });
-    connected = Boolean(r.ok);
-    lastError = connected ? null : r.error || "register failed";
+    // Try stored port first, then candidates
+    const stored = await chrome.storage.local.get(["httpPort"]);
+    const order = [
+      Number(stored.httpPort || DEFAULT_PORT),
+      ...PORT_CANDIDATES.filter((p) => p !== Number(stored.httpPort || DEFAULT_PORT)),
+    ];
+    for (const port of order) {
+      try {
+        if (await tryRegisterOnPort(port)) {
+          connected = true;
+          lastError = null;
+          setStatus({});
+          return true;
+        }
+      } catch {
+        /* try next */
+      }
+    }
+    connected = false;
+    lastError = "Control Center not reachable on 127.0.0.1";
     setStatus({});
-    return connected;
+    return false;
   } catch (e) {
     connected = false;
     lastError = String(e);
@@ -80,7 +108,7 @@ async function pollLoop() {
       if (!connected) {
         await register();
         if (!connected) {
-          await sleep(3000);
+          await sleep(1500);
           continue;
         }
       }
@@ -115,7 +143,7 @@ async function pollLoop() {
       connected = false;
       lastError = String(e);
       setStatus({});
-      await sleep(2500);
+      await sleep(1500);
     }
   }
 }
@@ -129,7 +157,6 @@ function connectNative() {
     nativePort = chrome.runtime.connectNative(HOST_NAME);
     nativePort.onMessage.addListener((msg) => {
       if (msg && msg.type && msg.type !== "response" && msg.id) {
-        // Host-pushed command (optional path)
         handleCommand(msg.type, msg.payload || {})
           .then((data) => nativePort?.postMessage({ type: "response", id: msg.id, ok: true, data }))
           .catch((e) =>
@@ -463,6 +490,21 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   return false;
 });
 
+// Keep SW alive and re-register
+chrome.alarms.create("chrome-mcp-heartbeat", { periodInMinutes: 0.5 });
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === "chrome-mcp-heartbeat") {
+    register().catch(() => {});
+  }
+});
+
+chrome.runtime.onInstalled.addListener(() => {
+  register();
+});
+chrome.runtime.onStartup.addListener(() => {
+  register();
+});
+
 // Boot
 pollAbort = false;
 register().then(() => {
@@ -477,4 +519,4 @@ setInterval(() => {
     connected = false;
     setStatus({});
   });
-}, 15000);
+}, 10000);

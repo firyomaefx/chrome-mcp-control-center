@@ -89,7 +89,8 @@ class BrowserBridge extends EventEmitter {
 
   setConnected(v: boolean): void {
     this.connected = v;
-    this.lastSeen = new Date().toISOString();
+    if (v) this.lastSeen = new Date().toISOString();
+    else this.lastSeen = undefined;
     this.emit("connection", v);
   }
 

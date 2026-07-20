@@ -84,6 +84,11 @@ export async function startHttpServer(
         res.end(JSON.stringify(await supervisor.repair()));
         return;
       }
+      if (url.pathname === "/control/connect-chrome" && req.method === "POST") {
+        const report = await supervisor.connectChrome();
+        res.end(JSON.stringify(report));
+        return;
+      }
       if (url.pathname === "/control/pair" && req.method === "POST") {
         const body = await readBody(req);
         const name = String(body.name || "default");

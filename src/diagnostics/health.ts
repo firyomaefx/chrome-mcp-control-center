@@ -30,15 +30,16 @@ export async function runHealthCheck(
   const chromeFound = Boolean(chromePath);
   const nm = isNativeHostRegistered();
   const bridge = opts.mockBridge
-    ? { connected: true, lastSeen: new Date().toISOString(), mock: true }
+    ? { connected: true, lastSeen: new Date().toISOString(), mock: true, extensionId: "mock" }
     : getBridgeStatus();
 
   const paired = cfg.connections.some((c) => !c.revoked);
   const components: HealthReport["components"] = {
     disk: "pass",
     chrome: chromeFound || opts.mockBridge ? "pass" : "fail",
-    nativeHost: nm.registered || opts.mockBridge ? "pass" : "warn",
-    extension: bridge.connected || opts.mockBridge ? "pass" : "warn",
+    // HTTP bridge is the primary control plane; NM is secondary
+    nativeHost: nm.registered || opts.mockBridge || bridge.connected ? "pass" : "warn",
+    extension: bridge.connected || opts.mockBridge ? "pass" : "fail",
     llm: paired ? "pass" : "warn",
     mcp: "pass",
   };
@@ -47,20 +48,22 @@ export async function runHealthCheck(
   let repairAction: string | undefined;
   if (!chromeFound && !opts.mockBridge) {
     primaryFailure = "Chrome not found";
-    repairAction = "Install Google Chrome, then click Connect Chrome";
+    repairAction = "Install Google Chrome, then click Start All";
     components.chrome = "fail";
-  } else if (!nm.registered && !opts.mockBridge) {
-    primaryFailure = "Native Messaging host not registered";
-    repairAction = "Click Repair System";
   } else if (!bridge.connected && !opts.mockBridge) {
     primaryFailure = "Extension not connected";
-    repairAction = "Open Chrome, enable extension, click Connect Chrome";
+    repairAction =
+      "Click Connect Chrome or Start All — Chrome will relaunch once with the extension loaded";
+    components.extension = "fail";
+  } else if (!nm.registered && !opts.mockBridge && bridge.connected) {
+    // Soft: connected over HTTP is enough for Ready
+    components.nativeHost = "warn";
   }
 
-  // Ready for automation requires chrome+extension+native (or mock)
+  // Ready: Chrome present + extension HTTP connected (NM optional when HTTP works)
   const ok =
     opts.mockBridge ||
-    (chromeFound && nm.registered && bridge.connected && !cfg.emergencyStop);
+    (chromeFound && bridge.connected && !cfg.emergencyStop);
 
   return {
     ok,
@@ -69,9 +72,9 @@ export async function runHealthCheck(
     repairAction,
     chrome: { ok: chromeFound || !!opts.mockBridge, found: chromeFound, path: chromePath },
     extension: {
-      installed: Boolean(cfg.extensionId) || bridge.connected,
+      installed: Boolean(cfg.extensionId) || bridge.connected || fs.existsSync(path.join(dataDir, "extension", "manifest.json")),
       connected: bridge.connected || !!opts.mockBridge,
-      extensionId: cfg.extensionId || undefined,
+      extensionId: bridge.extensionId || cfg.extensionId || undefined,
     },
     nativeHost: { registered: nm.registered || !!opts.mockBridge, manifestPath: nm.manifestPath },
     mcp: { ok: true },
@@ -79,7 +82,7 @@ export async function runHealthCheck(
     ports: { httpPort: cfg.httpPort, conflict: false },
     disk: { ok: fs.existsSync(dataDir), dataDir },
     versions: {
-      app: "1.0.0",
+      app: "1.0.1",
       node: process.version,
       platform: `${os.platform()} ${os.release()}`,
     },

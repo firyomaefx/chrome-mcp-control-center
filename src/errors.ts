@@ -58,8 +58,8 @@ const CATALOG: Record<
     needsUserIntervention: true,
   },
   EXTENSION_NOT_CONNECTED: {
-    cause: "The Chrome extension is not connected to the native host.",
-    recovery: "Open Chrome, enable the extension, click Connect Chrome.",
+    cause: "The Chrome extension is not registered with the Control Center HTTP bridge.",
+    recovery: "Click Connect Chrome or Start All — Chrome will relaunch once with the extension.",
     retryable: true,
     needsUserIntervention: true,
   },

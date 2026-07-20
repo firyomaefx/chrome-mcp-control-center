@@ -5,6 +5,8 @@ import { StateStore, type SystemSnapshot } from "./state.js";
 import { runHealthCheck, type HealthReport } from "../diagnostics/health.js";
 import { repairSystem, type RepairReport } from "../diagnostics/repair.js";
 import { AppError } from "../errors.js";
+import { connectChrome, ensureChromeConnected, type ConnectReport } from "../chrome/connect.js";
+import { getBridgeStatus } from "../browser/bridge.js";
 
 export interface SupervisorOptions {
   dataDir: string;
@@ -101,25 +103,39 @@ export class Supervisor {
         permissionMode: this.cfg.permissionMode,
         emergencyStop: false,
         paused: this.cfg.paused,
+        lastError: undefined,
       });
 
-      // Chrome / extension
+      // Single-click: stage + launch/relaunch Chrome with extension if not connected
+      if (!this.opts.mockBridge && !getBridgeStatus().connected) {
+        this.state.update({ lastError: "Connecting Chrome extension…" });
+        this.emit();
+        const conn = await ensureChromeConnected(this.opts.dataDir);
+        if (!conn.ok) {
+          this.state.update({
+            extension: "failed",
+            overall: "needs_attention",
+            lastError: conn.error || "Extension not connected",
+          });
+          this.emit();
+          // Still return state — do not throw false Ready
+        }
+      }
+
+      // Chrome / extension health
       const health = await runHealthCheck(this.opts.dataDir, {
         mockBridge: this.opts.mockBridge,
       });
       this.applyHealth(health);
 
-      const snap = this.state.get();
-      // Hard gate: Ready only if health says so
-      if (snap.overall === "ready" || (this.opts.mockBridge && snap.mcp === "running")) {
-        if (this.opts.mockBridge) {
-          this.state.update({
-            chrome: "running",
-            extension: "running",
-            nativeHost: "running",
-            overall: "ready",
-          });
-        }
+      if (this.opts.mockBridge && this.running) {
+        this.state.update({
+          chrome: "running",
+          extension: "running",
+          nativeHost: "running",
+          overall: "ready",
+          lastError: undefined,
+        });
       }
       this.emit();
       return this.state.get();
@@ -203,7 +219,21 @@ export class Supervisor {
 
   async repair(): Promise<RepairReport> {
     const report = await repairSystem(this.opts.dataDir, { onlyIfNeeded: false });
+    if (!this.opts.mockBridge && !getBridgeStatus().connected) {
+      await connectChrome({ dataDir: this.opts.dataDir });
+    }
     await this.health();
+    return report;
+  }
+
+  /** Single-click Connect Chrome (auto-relaunch if needed). */
+  async connectChrome(): Promise<ConnectReport> {
+    const report = await connectChrome({
+      dataDir: this.opts.dataDir,
+      forceRelaunch: !getBridgeStatus().connected && !this.opts.mockBridge,
+    });
+    await this.health();
+    this.emit();
     return report;
   }
 
