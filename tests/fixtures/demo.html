@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Chrome MCP Demo</title>
+  </head>
+  <body>
+    <h1>Chrome MCP Demo</h1>
+    <p>Safe local demonstration page.</p>
+    <button id="demo-btn" type="button">Test Button</button>
+    <p id="out">Not clicked</p>
+    <script>
+      document.getElementById("demo-btn").onclick = () => {
+        document.getElementById("out").textContent = "Clicked at " + new Date().toISOString();
+      };
+    </script>
+  </body>
+</html>

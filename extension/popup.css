@@ -1,0 +1,68 @@
+body {
+  font-family: "Segoe UI", system-ui, sans-serif;
+  width: 280px;
+  margin: 0;
+  padding: 14px;
+  background: #0f172a;
+  color: #e2e8f0;
+}
+h1 {
+  font-size: 16px;
+  margin: 0;
+}
+.sub {
+  margin: 2px 0 12px;
+  color: #94a3b8;
+  font-size: 12px;
+}
+.status {
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+.status.green {
+  background: #14532d;
+  color: #bbf7d0;
+}
+.status.yellow {
+  background: #713f12;
+  color: #fde68a;
+}
+.status.red {
+  background: #7f1d1d;
+  color: #fecaca;
+}
+.status.grey {
+  background: #334155;
+  color: #cbd5e1;
+}
+.meta {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: #cbd5e1;
+}
+.actions {
+  display: flex;
+  gap: 8px;
+}
+button {
+  flex: 1;
+  border: 0;
+  border-radius: 8px;
+  padding: 8px;
+  background: #2563eb;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+}
+button.secondary {
+  background: #475569;
+}
+.hint {
+  font-size: 11px;
+  color: #94a3b8;
+  margin-top: 12px;
+}

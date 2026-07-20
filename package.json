@@ -1,0 +1,48 @@
+{
+  "name": "chrome-mcp-control-center",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Single-click Windows Chrome Computer-Use MCP — Control Center, MCP server, extension, and supervisor.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "chrome-mcp": "dist/cli.js",
+    "chrome-mcp-host": "dist/native-host/host.js"
+  },
+  "scripts": {
+    "build": "tsc && node scripts/copy-assets.mjs",
+    "dev": "tsc --watch",
+    "start": "node dist/cli.js",
+    "serve": "node dist/cli.js serve",
+    "serve:http": "node dist/cli.js serve-http",
+    "test": "node --test --import tsx tests/permissions.test.ts tests/redact.test.ts tests/supervisor.test.ts tests/vertical-slice.test.ts",
+    "typecheck": "tsc --noEmit",
+    "bundle:runtime": "esbuild dist/cli.js --bundle --platform=node --format=esm --target=node20 --outfile=desktop/runtime-bundle.mjs --external:electron",
+    "desktop": "npm run build && npm run bundle:runtime && npm --prefix desktop start",
+    "desktop:pack": "npm run build && npm run bundle:runtime && npm --prefix desktop run dist",
+    "health": "node dist/cli.js health",
+    "repair": "node dist/cli.js repair"
+  },
+  "keywords": [
+    "mcp",
+    "chrome",
+    "browser-automation",
+    "computer-use",
+    "windows",
+    "native-messaging"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "zod": "^3.24.2",
+    "zod-to-json-schema": "^3.24.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "esbuild": "^0.25.1",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
+  }
+}

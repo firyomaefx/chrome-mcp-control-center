@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Chrome MCP Control Center</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div id="app">
+      <aside class="nav">
+        <div class="brand">
+          <div class="logo">MCP</div>
+          <div>
+            <strong>Chrome MCP</strong>
+            <div class="muted">Control Center</div>
+          </div>
+        </div>
+        <button data-page="home" class="nav-btn active">Home</button>
+        <button data-page="llm" class="nav-btn">LLM Connections</button>
+        <button data-page="chrome" class="nav-btn">Chrome</button>
+        <button data-page="workflows" class="nav-btn">Workflows</button>
+        <button data-page="autofill" class="nav-btn">Autofill</button>
+        <button data-page="permissions" class="nav-btn">Permissions</button>
+        <button data-page="logs" class="nav-btn">Logs</button>
+        <button data-page="diagnostics" class="nav-btn">Diagnostics</button>
+        <button data-page="settings" class="nav-btn">Settings</button>
+        <button data-page="wizard" class="nav-btn">Setup Wizard</button>
+        <div class="nav-foot muted" id="runtime-pill">Runtime: …</div>
+      </aside>
+
+      <main>
+        <header class="top">
+          <div>
+            <h1 id="page-title">Home</h1>
+            <p class="muted" id="page-sub">System status and primary controls</p>
+          </div>
+          <div class="top-actions">
+            <button class="btn danger" id="btn-emergency">Emergency Stop</button>
+          </div>
+        </header>
+
+        <section id="page-home" class="page active">
+          <div class="status-row" id="overall-card">
+            <div class="status-badge grey" id="overall-badge">● Stopped</div>
+            <div class="muted" id="overall-detail">Click Start All when you are ready.</div>
+          </div>
+          <div class="grid cards" id="component-cards"></div>
+          <div class="actions big">
+            <button class="btn primary lg" id="btn-start">Start All</button>
+            <button class="btn lg" id="btn-stop">Stop All</button>
+            <button class="btn lg" id="btn-pause">Pause Automation</button>
+            <button class="btn lg" id="btn-pair">Pair LLM</button>
+            <button class="btn lg" id="btn-health">Run Health Check</button>
+            <button class="btn lg" id="btn-repair">Repair System</button>
+          </div>
+          <div class="panel">
+            <h3>Session</h3>
+            <div class="kv" id="session-kv"></div>
+          </div>
+        </section>
+
+        <section id="page-llm" class="page">
+          <div class="panel">
+            <h3>Pair a client</h3>
+            <div class="form-row">
+              <label>Name <input id="pair-name" value="grok-cli" /></label>
+              <label
+                >Provider
+                <select id="pair-provider">
+                  <option value="grok">Grok CLI</option>
+                  <option value="claude">Claude</option>
+                  <option value="codex">Codex</option>
+                  <option value="generic">Generic MCP</option>
+                  <option value="local">Local LLM</option>
+                </select>
+              </label>
+              <button class="btn primary" id="btn-pair-create">Pair</button>
+            </div>
+            <pre id="pair-output" class="code"></pre>
+          </div>
+          <div class="panel">
+            <h3>Connections</h3>
+            <div id="connections-list"></div>
+          </div>
+        </section>
+
+        <section id="page-chrome" class="page">
+          <div class="panel">
+            <h3>Chrome connection</h3>
+            <div id="chrome-status" class="kv"></div>
+            <div class="actions">
+              <button class="btn primary" id="btn-connect-chrome">Connect Chrome</button>
+              <button class="btn" id="btn-open-ext">Open extension folder</button>
+              <button class="btn" id="btn-repair-nm">Repair Native Messaging</button>
+              <button class="btn" id="btn-refresh-health">Test connection</button>
+            </div>
+            <p class="muted">
+              Load the unpacked extension from the folder, copy its ID into Settings (or Repair will
+              use the configured ID), then Start All.
+            </p>
+          </div>
+        </section>
+
+        <section id="page-workflows" class="page">
+          <div class="panel">
+            <h3>Workflows</h3>
+            <p class="muted">Create, dry-run, and run saved browser workflows. MVP lists storage-ready engine.</p>
+            <button class="btn primary" id="btn-sample-workflow">Create sample workflow</button>
+            <pre id="workflows-out" class="code"></pre>
+          </div>
+        </section>
+
+        <section id="page-autofill" class="page">
+          <div class="panel">
+            <h3>Autofill profiles</h3>
+            <p class="muted">
+              Detect → Preview → Fill → Validate → Submit (never combined). Secrets never go to the
+              LLM.
+            </p>
+          </div>
+        </section>
+
+        <section id="page-permissions" class="page">
+          <div class="panel">
+            <h3>Safety mode</h3>
+            <label
+              >Mode
+              <select id="perm-mode">
+                <option value="read_only">Read only</option>
+                <option value="ask_before_actions" selected>Ask before actions (recommended)</option>
+                <option value="allow_low_risk">Allow approved low-risk actions</option>
+              </select>
+            </label>
+            <label class="check"
+              ><input type="checkbox" id="perm-low" /> Always allow low-risk (level 1)</label
+            >
+            <label class="check"
+              ><input type="checkbox" id="perm-computer" /> Enable computer-use fallback</label
+            >
+            <button class="btn primary" id="btn-save-perm">Save permissions</button>
+            <p class="muted">Level 3 high-risk actions are blocked in MVP.</p>
+          </div>
+        </section>
+
+        <section id="page-logs" class="page">
+          <div class="panel">
+            <h3>Audit logs</h3>
+            <p class="muted">Open the diagnostics folder to view JSONL audit files (redacted).</p>
+            <button class="btn" id="btn-open-logs">Open diagnostics folder</button>
+          </div>
+        </section>
+
+        <section id="page-diagnostics" class="page">
+          <div class="panel">
+            <h3>Full health check</h3>
+            <button class="btn primary" id="btn-diag-run">Run</button>
+            <button class="btn" id="btn-diag-repair">Repair</button>
+            <pre id="diag-out" class="code"></pre>
+          </div>
+        </section>
+
+        <section id="page-settings" class="page">
+          <div class="panel">
+            <h3>Settings</h3>
+            <p class="muted">Automatic startup and telemetry stay off unless you enable them.</p>
+            <label>Extension ID <input id="ext-id" placeholder="from chrome://extensions" /></label>
+            <button class="btn primary" id="btn-save-settings">Save</button>
+            <div class="kv" id="settings-kv"></div>
+          </div>
+        </section>
+
+        <section id="page-wizard" class="page">
+          <div class="panel wizard">
+            <h3>First-run wizard</h3>
+            <div id="wizard-step"></div>
+            <div class="actions">
+              <button class="btn" id="wiz-back">Back</button>
+              <button class="btn primary" id="wiz-next">Next</button>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+    <div id="toast" hidden></div>
+    <script src="app.js"></script>
+  </body>
+</html>

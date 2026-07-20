@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Chrome MCP</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Chrome MCP</h1>
+      <p class="sub">Control Center connection</p>
+    </header>
+    <div id="status" class="status grey">Checking…</div>
+    <ul class="meta">
+      <li>Automation: <strong id="auto">—</strong></li>
+      <li>Last error: <span id="err">none</span></li>
+    </ul>
+    <div class="actions">
+      <button id="reconnect">Reconnect</button>
+      <button id="pause" class="secondary">Pause automation</button>
+    </div>
+    <p class="hint">Manage permissions and Start All from the desktop Control Center.</p>
+    <script src="popup.js"></script>
+  </body>
+</html>

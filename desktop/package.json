@@ -1,0 +1,56 @@
+{
+  "name": "chrome-mcp-control-center-desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Chrome MCP Control Center — single-click Windows dashboard",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.chromemcp.controlcenter",
+    "productName": "Chrome MCP Control Center",
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer/**/*",
+      "runtime-bundle.mjs"
+    ],
+    "extraResources": [
+      {
+        "from": "runtime-bundle.mjs",
+        "to": "runtime-bundle.mjs"
+      },
+      {
+        "from": "../extension",
+        "to": "extension"
+      }
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "artifactName": "ChromeMCPControlCenter-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Chrome MCP Control Center"
+    }
+  }
+}

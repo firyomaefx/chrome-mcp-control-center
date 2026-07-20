@@ -1,0 +1,13 @@
+node_modules/
+dist/
+desktop/node_modules/
+desktop/release/
+desktop/runtime-bundle.mjs
+*.log
+.DS_Store
+data/
+.env
+.env.*
+artifacts/
+*.tsbuildinfo
+coverage/
