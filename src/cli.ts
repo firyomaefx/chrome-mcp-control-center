@@ -99,6 +99,16 @@ async function main(): Promise<void> {
         selector: "#demo-btn",
         confirmed: true,
       });
+      const autofill = await rt.byName.get("autofill_preview")!.run({
+        fields: ["email", "password"],
+        profile: {
+          entries: [
+            { key: "email", value: "a@b.com" },
+            { key: "password", value: "secret" },
+          ],
+        },
+      });
+      const cu = await rt.byName.get("computer_request_user_takeover")!.run({ reason: "demo" });
       sup.emergencyStop();
       const blocked = await rt.byName.get("browser_click")!.run({
         selector: "#demo-btn",
@@ -114,12 +124,20 @@ async function main(): Promise<void> {
         readOk: read.ok,
         findOk: find.ok,
         clickOk: click.ok || clickDenied.ok,
+        autofillPreviewOk: autofill.ok,
+        computerTakeoverOk: cu.ok,
         emergencyBlocked: !blocked.ok && blocked.error?.code === "EMERGENCY_STOP_ACTIVE",
         stop: "ok",
       };
       console.log(JSON.stringify(report, null, 2));
       const pass =
-        report.listOk && report.readOk && report.findOk && report.clickOk && report.emergencyBlocked;
+        report.listOk &&
+        report.readOk &&
+        report.findOk &&
+        report.clickOk &&
+        report.autofillPreviewOk &&
+        report.computerTakeoverOk &&
+        report.emergencyBlocked;
       process.exit(pass ? 0 : 1);
       break;
     }

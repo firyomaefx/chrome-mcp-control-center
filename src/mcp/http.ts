@@ -5,10 +5,11 @@
 
 import http from "node:http";
 import { createRuntime } from "./server.js";
-import { authenticateToken, defaultDataDir, loadConfig } from "../config.js";
+import { authenticateToken, defaultDataDir, loadConfig, saveConfig } from "../config.js";
 import { Supervisor } from "../supervisor/supervisor.js";
 import { pairLlm, revokeConnection } from "../pairing/llm.js";
 import { makeError } from "../errors.js";
+import { bridge } from "../browser/bridge.js";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -113,6 +114,65 @@ export async function startHttpServer(
         const { saveConfig } = await import("../config.js");
         saveConfig(dataDir, next);
         res.end(JSON.stringify(next));
+        return;
+      }
+
+      // ── Extension HTTP relay (loopback only) ──────────────────────────
+      if (url.pathname === "/extension/register" && req.method === "POST") {
+        const body = await readBody(req);
+        const extId = typeof body.extensionId === "string" ? body.extensionId : undefined;
+        bridge.touchExtension(extId);
+        if (extId) {
+          const cur = loadConfig(dataDir);
+          if (cur.extensionId !== extId) {
+            saveConfig(dataDir, { ...cur, extensionId: extId });
+          }
+        }
+        res.end(
+          JSON.stringify({
+            ok: true,
+            bridge: bridge.status(),
+            message: "Extension registered with Control Center",
+          }),
+        );
+        return;
+      }
+
+      if (url.pathname === "/extension/heartbeat" && req.method === "POST") {
+        const body = await readBody(req);
+        bridge.touchExtension(typeof body.extensionId === "string" ? body.extensionId : undefined);
+        res.end(JSON.stringify({ ok: true, bridge: bridge.status() }));
+        return;
+      }
+
+      if (url.pathname === "/extension/poll" && req.method === "GET") {
+        const waitMs = Math.min(Number(url.searchParams.get("waitMs") || 15000), 25000);
+        bridge.touchExtension();
+        const cmd = await bridge.takeCommand(waitMs);
+        res.end(JSON.stringify({ ok: true, command: cmd }));
+        return;
+      }
+
+      if (url.pathname === "/extension/result" && req.method === "POST") {
+        const body = await readBody(req);
+        const id = String(body.id || "");
+        if (!id) {
+          res.statusCode = 400;
+          res.end(JSON.stringify({ error: "id required" }));
+          return;
+        }
+        bridge.resolveCommand({
+          id,
+          ok: Boolean(body.ok),
+          data: body.data,
+          error: typeof body.error === "string" ? body.error : undefined,
+        });
+        res.end(JSON.stringify({ ok: true }));
+        return;
+      }
+
+      if (url.pathname === "/extension/status" && req.method === "GET") {
+        res.end(JSON.stringify(bridge.status()));
         return;
       }
 

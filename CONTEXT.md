@@ -1,32 +1,13 @@
 # CONTEXT.md — Chrome MCP Control Center
 
 **Updated:** 2026-07-21  
-**Current loop:** Loop 1 complete → Loop 2 ready  
-**PMP phase:** Execution (M1 vertical slice passed)  
+**Current loop:** Loop 2 complete  
+**PMP phase:** Execution (M1 + M2 packaging smoke)  
 **GitHub:** https://github.com/firyomaefx/chrome-mcp-control-center
 
 ## Product goal
 
 Single-click Windows product so a non-technical user can install one app, open one desktop shortcut, click Start All, and let an MCP-compatible LLM safely control Chrome (DOM-first) with computer-use fallback and hard permission gates.
-
-## Current scope (MVP)
-
-Vertical slice §20 implemented and automated with mock bridge. Live Chrome E2E and signed installer are next.
-
-## Architecture (summary)
-
-Control Center (Electron) → Supervisor + loopback HTTP → MCP tools → PermissionEngine → Browser bridge → Extension (Native Messaging) → Chrome. Computer-use is guarded fallback.
-
-## Decisions
-
-| ID | Decision |
-|----|----------|
-| D1 | TypeScript + MCP SDK |
-| D2 | Electron Control Center |
-| D3 | Native Messaging for real session |
-| D4 | stdio MCP default; HTTP loopback optional |
-| D5 | Permission levels 0–3; L3 blocked |
-| D6 | Mock bridge for CI vertical slice |
 
 ## Implementation status
 
@@ -35,60 +16,57 @@ Control Center (Electron) → Supervisor + loopback HTTP → MCP tools → Permi
 | PMP docs | Done |
 | Permissions / audit / errors | Done |
 | Supervisor Start/Stop/Emergency | Done + tested |
-| MCP tools (browser + computer + system) | Done |
-| Native host + MV3 extension | Done (live Chrome needs unpacked load) |
+| MCP tools (browser + autofill + computer + system) | Done |
+| **HTTP extension bridge (real control plane)** | **Done + tested** |
+| MV3 extension (HTTP poll + optional NM) | Done |
 | Electron dashboard + wizard | Done |
 | LLM pairing | Done |
 | Health / Repair | Done |
-| Unit + vertical-slice tests | **13/13 pass** |
+| Unit + bridge + vertical-slice tests | **25/25 pass** |
 | demo-slice CLI | **pass** |
-| NSIS packaging config | Present (`desktop/`); not built in CI this loop |
-| Code signing | Deferred (no cert) |
+| Portable Windows exe | **Built** `desktop/release/ChromeMCPControlCenter-1.0.0-portable.exe` |
+| win-unpacked desktop shortcut path | **Built** |
+| NSIS one-click Setup | Attempted; portable is primary ship path this loop |
+| Code signing | Deferred (no cert; symlink privilege on winCodeSign) |
+| Manual Chrome Load-unpacked E2E | Probe only — requires user UI click |
 
-## Known defects / limitations
-
-1. **Unsigned installer** — Windows SmartScreen may warn (R2).  
-2. **Unpacked extension ID** — user must load unpacked and save ID, then Repair.  
-3. **Computer-use real input** — simulated unless `CHROME_MCP_ALLOW_INPUT=1`.  
-4. **OCR locate** — stub; DOM-first path preferred.  
-5. **Live Chrome E2E** — not automated in CI (mock bridge used).  
-6. **Autofill UI** — engine minimal; full profile CRUD deferred polish.
-
-## Security risks
-
-| Risk | Status |
-|------|--------|
-| False Ready | Mitigated by health gate |
-| Prompt injection | Heuristic + untrusted content policy |
-| Unauthorized client | Token auth when paired |
-| Secret leakage | Redaction + no password return |
-| Unsigned update | Open |
-
-## Test evidence (Loop 1)
+## Test evidence (Loop 2)
 
 ```
-npm run build  → pass
-npm test       → 13 pass, 0 fail
+npm run build     → pass
+npm test          → 25 pass, 0 fail
+  - permissions, redact, supervisor, vertical-slice
+  - autofill, computer-use
+  - extension HTTP bridge (register → list_tabs → read → screenshot → click confirm → emergency)
 node dist/cli.js demo-slice → pass
-  startOverall ready, list/read/find/click ok, emergencyBlocked true
+scripts/live-chrome-probe.mjs → Chrome found + extension path OK
+portable build → ChromeMCPControlCenter-1.0.0-portable.exe (~71 MB)
 ```
+
+## Architecture change (Loop 2)
+
+**Before:** In-process mock / disconnected native host process.  
+**After:** Control Center HTTP server owns the bridge queue. Extension registers and long-polls `127.0.0.1` for commands and posts results. This is the production control plane.
+
+## Known limitations
+
+1. Unsigned portable/NSIS — SmartScreen may warn  
+2. First Chrome connection still needs Load unpacked (or future Web Store ID)  
+3. Real mouse injection opt-in only (`CHROME_MCP_ALLOW_INPUT=1`)  
+4. OCR locate stub  
+5. Full manual Chrome session E2E not automated (Chrome security blocks silent extension install)
+
+## Next actions (Loop 3 candidates)
+
+1. Custom app icon + signed build when cert available  
+2. One-click extension sideload helper UX polish  
+3. Workflow recorder UI  
+4. Publish GitHub Release with portable.exe + checksums  
 
 ## Loop history
 
 | Loop | Focus | Outcome |
 |------|-------|---------|
-| 0 | Scaffold | package + partial docs |
-| 1 | PMP + vertical slice + GitHub | **Complete** — tests green, repo pushed |
-
-## Next actions (Loop 2)
-
-1. Real Chrome E2E with loaded extension  
-2. `npm run desktop:pack` smoke build  
-3. Authenticode signing pipeline when cert available  
-4. Deepen autofill + workflow recorder  
-5. Harden computer-use with explicit confirm UX  
-
-## Assumptions
-
-- Windows 10/11, Chrome installed for production use  
-- Node 20+ for development  
+| 0 | Scaffold | Partial |
+| 1 | Vertical slice + GitHub | Complete |
+| 2 | Live extension HTTP bridge + pack | **Complete** |

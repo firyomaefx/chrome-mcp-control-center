@@ -30,7 +30,7 @@ export async function runHealthCheck(
   const chromeFound = Boolean(chromePath);
   const nm = isNativeHostRegistered();
   const bridge = opts.mockBridge
-    ? { connected: true, lastSeen: new Date().toISOString() }
+    ? { connected: true, lastSeen: new Date().toISOString(), mock: true }
     : getBridgeStatus();
 
   const paired = cfg.connections.some((c) => !c.revoked);

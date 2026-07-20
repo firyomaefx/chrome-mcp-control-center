@@ -98,13 +98,16 @@ function startRuntime() {
   runtimeStatus = "starting";
   send("runtime:status", { status: runtimeStatus, message: "Starting services…" });
 
-  runtimeProc = spawn(process.execPath, [script, "serve-http", "--mock"], {
+  // Default: real extension HTTP bridge. Set CHROME_MCP_MOCK=1 only for offline demo.
+  const useMock = process.env.CHROME_MCP_MOCK === "1";
+  const args = useMock ? ["serve-http", "--mock"] : ["serve-http"];
+  runtimeProc = spawn(process.execPath, [script, ...args], {
     env: {
       ...process.env,
       ELECTRON_RUN_AS_NODE: "1",
       CHROME_MCP_DATA_DIR: dataDir(),
       CHROME_MCP_HTTP_PORT: String(HTTP_PORT),
-      CHROME_MCP_MOCK: process.env.CHROME_MCP_MOCK || "0",
+      CHROME_MCP_MOCK: useMock ? "1" : "0",
     },
     stdio: ["ignore", "pipe", "pipe"],
   });

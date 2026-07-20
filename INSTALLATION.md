@@ -2,11 +2,23 @@
 
 ## End user (packaged)
 
-1. Download `ChromeMCPControlCenter-Setup.exe` from Releases.  
-2. Run the installer (Windows may warn if unsigned — verify publisher/channel).  
-3. Open **Chrome MCP Control Center** from the desktop.  
-4. Complete the first-run wizard.  
-5. Click **Start All**.  
+### Portable (recommended until code signing is available)
+
+1. Download `ChromeMCPControlCenter-1.0.0-portable.exe` from the repo `desktop/release/` or GitHub Releases.  
+2. Run it (Windows may warn if unsigned — verify the download channel).  
+3. Complete the first-run wizard.  
+4. **Connect Chrome:** Extensions → Developer mode → Load unpacked → select the bundled `extension` folder (or repo `extension/`).  
+5. Click **Start All** — status becomes **Ready** when the extension is connected.  
+
+### NSIS installer
+
+When present: `ChromeMCPControlCenter-Setup-*.exe` creates a desktop shortcut automatically.
+
+### Dev unpacked
+
+```
+desktop/release/win-unpacked/Chrome MCP Control Center.exe
+```
 
 ## Developer (from source)
 

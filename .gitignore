@@ -3,6 +3,8 @@ dist/
 desktop/node_modules/
 desktop/release/
 desktop/runtime-bundle.mjs
+# Keep release artifacts local; publish via GitHub Releases
+!desktop/release/.gitkeep
 *.log
 .DS_Store
 data/

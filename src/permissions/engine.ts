@@ -52,7 +52,7 @@ const TOOL_LEVEL: Record<string, PermissionLevel> = {
   autofill_detect: 0,
   autofill_preview: 0,
   autofill_fill: 1,
-  autofill_submit: 2,
+  autofill_submit: 2, // never auto-exposed as combined fill+submit
   computer_list_windows: 1,
   computer_focus_window: 1,
   computer_capture_screen: 0,

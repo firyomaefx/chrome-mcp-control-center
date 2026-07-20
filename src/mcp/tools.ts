@@ -9,6 +9,7 @@ import { okResult, failResult } from "../result.js";
 import { isAppError, makeError } from "../errors.js";
 import { loadConfig } from "../config.js";
 import { runHealthCheck } from "../diagnostics/health.js";
+import { AutofillEngine, isSensitiveKey } from "../autofill/engine.js";
 
 export interface ToolDef {
   name: string;
@@ -553,6 +554,96 @@ export function buildTools(ctx: ToolContext): ToolDef[] {
             { emergencyStop: cfg.emergencyStop, paused: cfg.paused },
             { method: "local", durationMs: 0 },
           );
+        }),
+    },
+    {
+      name: "autofill_detect",
+      description: "Detect forms on the page (no secrets returned)",
+      inputSchema: z.object({ tabId: z.number().optional() }),
+      run: (args) =>
+        gated("autofill_detect", args, async () => {
+          const page = await ctx.browser.readPage(
+            args.tabId !== undefined ? Number(args.tabId) : undefined,
+          );
+          if (!page.ok) return page;
+          const forms =
+            (page.data as { forms?: Array<{ name?: string; fields: Array<{ name: string; type: string; label?: string }> }> })
+              ?.forms || [];
+          const engine = new AutofillEngine();
+          return engine.detectForms(forms);
+        }),
+    },
+    {
+      name: "autofill_preview",
+      description: "Preview autofill mapping; passwords/payment never returned to LLM",
+      inputSchema: z.object({
+        fields: z.array(z.string()),
+        profile: z
+          .object({
+            id: z.string().optional(),
+            name: z.string().optional(),
+            entries: z.array(
+              z.object({
+                key: z.string(),
+                label: z.string().optional(),
+                value: z.string(),
+                sensitive: z.boolean().optional(),
+              }),
+            ),
+          })
+          .optional(),
+      }),
+      run: (args) =>
+        gated("autofill_preview", args, async () => {
+          const engine = new AutofillEngine();
+          const entries =
+            (args.profile as { entries?: Array<{ key: string; label?: string; value: string; sensitive?: boolean }> })
+              ?.entries || [];
+          // Strip secrets before any processing echo
+          const safeFields = entries.map((e) => ({
+            key: e.key,
+            label: e.label || e.key,
+            value: isSensitiveKey(e.key) || e.sensitive ? "[PROTECTED]" : e.value,
+            sensitive: isSensitiveKey(e.key) || !!e.sensitive,
+          }));
+          const profile = {
+            id: "inline",
+            name: "inline",
+            fields: safeFields,
+            allowedWebsites: ["*"],
+          };
+          return engine.preview(profile, (args.fields as string[]) || []);
+        }),
+    },
+    {
+      name: "autofill_fill",
+      description: "Fill form fields after approval (does NOT submit)",
+      inputSchema: baseConfirm({
+        mappings: z.array(z.object({ selector: z.string(), value: z.string() })),
+        tabId: z.number().optional(),
+      }),
+      run: (args) =>
+        gated("autofill_fill", args, async () => {
+          const mappings = (args.mappings as Array<{ selector: string; value: string }>) || [];
+          for (const m of mappings) {
+            if (isSensitiveKey(m.selector)) {
+              return failResult(
+                makeError("PERMISSION_DENIED", "Refusing to fill sensitive field via LLM payload"),
+              );
+            }
+            const r = await ctx.browser.type(
+              m.selector,
+              m.value,
+              args.tabId !== undefined ? Number(args.tabId) : undefined,
+              true,
+            );
+            if (!r.ok) return r;
+          }
+          return okResult({
+            filled: mappings.length,
+            submitted: false,
+            note: "Fill complete. Submit is a separate confirmed action.",
+          });
         }),
     },
   ];

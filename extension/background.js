@@ -1,14 +1,18 @@
 /**
- * Chrome MCP extension service worker — Native Messaging bridge + tab/DOM ops.
+ * Chrome MCP extension — HTTP loopback control plane + optional Native Messaging.
+ * Primary path: http://127.0.0.1:<port>/extension/* (same process as Control Center).
  */
 
 const HOST_NAME = "com.chromemcp.controlcenter";
 const MAX_TEXT = 200_000;
+const DEFAULT_PORT = 18787;
 
-let port = null;
+let httpBase = `http://127.0.0.1:${DEFAULT_PORT}`;
 let connected = false;
 let automationActive = false;
 let lastError = null;
+let nativePort = null;
+let pollAbort = false;
 
 function setStatus(partial) {
   chrome.storage.local.set({
@@ -16,6 +20,8 @@ function setStatus(partial) {
       connected,
       automationActive,
       lastError,
+      httpBase,
+      extensionId: chrome.runtime.id,
       updatedAt: new Date().toISOString(),
       ...partial,
     },
@@ -30,50 +36,122 @@ function setStatus(partial) {
   }
 }
 
-function connectHost() {
+async function loadPort() {
+  const stored = await chrome.storage.local.get(["httpPort"]);
+  const port = Number(stored.httpPort || DEFAULT_PORT);
+  httpBase = `http://127.0.0.1:${port}`;
+}
+
+async function httpJson(pathname, opts = {}) {
+  const res = await fetch(`${httpBase}${pathname}`, {
+    ...opts,
+    headers: { "Content-Type": "application/json", ...(opts.headers || {}) },
+  });
+  const text = await res.text();
   try {
-    port = chrome.runtime.connectNative(HOST_NAME);
-    connected = true;
-    lastError = null;
-    setStatus({});
-    port.onMessage.addListener(onHostMessage);
-    port.onDisconnect.addListener(() => {
-      connected = false;
-      port = null;
-      lastError = chrome.runtime.lastError?.message || "disconnected";
-      setStatus({});
-      // retry later
-      setTimeout(connectHost, 5000);
+    return JSON.parse(text || "{}");
+  } catch {
+    return { ok: false, error: text };
+  }
+}
+
+async function register() {
+  try {
+    await loadPort();
+    const r = await httpJson("/extension/register", {
+      method: "POST",
+      body: JSON.stringify({ extensionId: chrome.runtime.id }),
     });
-    port.postMessage({ type: "hello", id: "hello-" + Date.now(), extensionId: chrome.runtime.id });
+    connected = Boolean(r.ok);
+    lastError = connected ? null : r.error || "register failed";
+    setStatus({});
+    return connected;
   } catch (e) {
     connected = false;
     lastError = String(e);
     setStatus({});
-    setTimeout(connectHost, 8000);
+    return false;
   }
 }
 
-async function onHostMessage(msg) {
-  if (!msg || typeof msg !== "object") return;
-  // Commands from host → extension
-  if (msg.type && msg.type !== "response" && msg.id) {
-    automationActive = true;
-    setStatus({});
+async function pollLoop() {
+  while (!pollAbort) {
     try {
-      const data = await handleCommand(msg.type, msg.payload || {});
-      port?.postMessage({ type: "response", id: msg.id, ok: true, data });
-    } catch (e) {
-      port?.postMessage({
-        type: "response",
-        id: msg.id,
-        ok: false,
-        error: e instanceof Error ? e.message : String(e),
-      });
-    } finally {
-      automationActive = false;
+      if (!connected) {
+        await register();
+        if (!connected) {
+          await sleep(3000);
+          continue;
+        }
+      }
+      const r = await httpJson("/extension/poll?waitMs=12000", { method: "GET" });
+      connected = true;
+      lastError = null;
       setStatus({});
+      const cmd = r.command;
+      if (!cmd) continue;
+      automationActive = true;
+      setStatus({});
+      try {
+        const data = await handleCommand(cmd.type, cmd.payload || {});
+        await httpJson("/extension/result", {
+          method: "POST",
+          body: JSON.stringify({ id: cmd.id, ok: true, data }),
+        });
+      } catch (e) {
+        await httpJson("/extension/result", {
+          method: "POST",
+          body: JSON.stringify({
+            id: cmd.id,
+            ok: false,
+            error: e instanceof Error ? e.message : String(e),
+          }),
+        });
+      } finally {
+        automationActive = false;
+        setStatus({});
+      }
+    } catch (e) {
+      connected = false;
+      lastError = String(e);
+      setStatus({});
+      await sleep(2500);
     }
+  }
+}
+
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+function connectNative() {
+  try {
+    nativePort = chrome.runtime.connectNative(HOST_NAME);
+    nativePort.onMessage.addListener((msg) => {
+      if (msg && msg.type && msg.type !== "response" && msg.id) {
+        // Host-pushed command (optional path)
+        handleCommand(msg.type, msg.payload || {})
+          .then((data) => nativePort?.postMessage({ type: "response", id: msg.id, ok: true, data }))
+          .catch((e) =>
+            nativePort?.postMessage({
+              type: "response",
+              id: msg.id,
+              ok: false,
+              error: String(e),
+            }),
+          );
+      }
+    });
+    nativePort.onDisconnect.addListener(() => {
+      nativePort = null;
+    });
+    nativePort.postMessage({
+      type: "hello",
+      id: "hello-" + Date.now(),
+      extensionId: chrome.runtime.id,
+    });
+  } catch {
+    nativePort = null;
   }
 }
 
@@ -270,11 +348,7 @@ function extractA11y() {
       el.getAttribute?.("name") ||
       "";
     if (role && name) {
-      nodes.push({
-        role,
-        name,
-        selector: el.id ? "#" + el.id : role,
-      });
+      nodes.push({ role, name, selector: el.id ? "#" + el.id : role });
     }
     for (const c of el.children || []) walk(c, depth + 1);
   };
@@ -366,7 +440,6 @@ function genericDom(type, payload) {
   return { ok: true };
 }
 
-// Popup messages
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg?.type === "get_status") {
     chrome.storage.local.get("status", (r) => sendResponse(r.status || { connected }));
@@ -378,19 +451,30 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     sendResponse({ ok: true });
   }
   if (msg?.type === "reconnect") {
-    connectHost();
-    sendResponse({ ok: true });
+    register().then(() => sendResponse({ ok: true }));
+    return true;
+  }
+  if (msg?.type === "set_port") {
+    chrome.storage.local.set({ httpPort: Number(msg.port) || DEFAULT_PORT }, () => {
+      loadPort().then(() => register()).then(() => sendResponse({ ok: true }));
+    });
+    return true;
   }
   return false;
 });
 
-connectHost();
+// Boot
+pollAbort = false;
+register().then(() => {
+  connectNative();
+  pollLoop();
+});
 setInterval(() => {
-  if (port && connected) {
-    try {
-      port.postMessage({ type: "heartbeat", id: "hb-" + Date.now() });
-    } catch {
-      /* ignore */
-    }
-  }
-}, 20000);
+  httpJson("/extension/heartbeat", {
+    method: "POST",
+    body: JSON.stringify({ extensionId: chrome.runtime.id }),
+  }).catch(() => {
+    connected = false;
+    setStatus({});
+  });
+}, 15000);
