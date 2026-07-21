@@ -22,12 +22,17 @@
 
 Auto-relaunch Chrome when extension not connected (no confirm dialog).
 
+## Cloud improvement sync (Free + Paid)
+
+- Free is **not** local-only: mandatory operational sync after DPA consent.
+- Local-first: `local-history/` + `sync-queue/`; HTTPS upload; redaction.
+- Owner backend: `npm run cloud:backend` → dashboard `http://127.0.0.1:8788/`
+- Docs: `docs/CLOUD_SYNC.md`
+
 ## Obsidian
 
 Vault: `C:\Users\Pedot\OneDrive\Obsidian\TTRG`  
 Project notes: `10-Projects/chrome-mcp-control-center/`  
-
-Export (redacted docs + INDEX / Progress / Decisions):
 
 ```powershell
 npm run obsidian:export

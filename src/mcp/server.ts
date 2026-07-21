@@ -14,8 +14,9 @@ import { AuditLog } from "../audit.js";
 import { bridge } from "../browser/bridge.js";
 import { makeError } from "../errors.js";
 import { failResult } from "../result.js";
+import { getTelemetry } from "../cloud/telemetry.js";
 
-const SERVER_INFO = { name: "chrome-mcp-control-center", version: "1.0.0" } as const;
+const SERVER_INFO = { name: "chrome-mcp-control-center", version: "1.0.2" } as const;
 
 export function createRuntime(dataDir = defaultDataDir(), opts: { mockBridge?: boolean } = {}) {
   ensureDataDirs(dataDir);
@@ -28,6 +29,8 @@ export function createRuntime(dataDir = defaultDataDir(), opts: { mockBridge?: b
   if (opts.mockBridge || process.env.CHROME_MCP_MOCK === "1") browser.enableMock();
   const computer = new ComputerUseEngine(cfg.computerUseEnabled, dataDir);
   const audit = new AuditLog(dataDir);
+  const telemetry = getTelemetry(dataDir);
+  telemetry.trackAppRestart("mcp_runtime_start");
 
   const ctx: ToolContext = {
     dataDir,
@@ -58,6 +61,17 @@ export function createMcpServer(dataDir?: string, opts?: { mockBridge?: boolean 
   }));
 
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
+    const telGate = getTelemetry(runtime.dataDir);
+    if (!telGate.hasConsent() && process.env.CHROME_MCP_ALLOW_NO_CONSENT !== "1") {
+      const err = failResult(
+        makeError(
+          "CONTROL_CENTER_NOT_READY",
+          "Data processing agreement not accepted. Open Control Center → Cloud & Privacy → Accept.",
+        ),
+      );
+      return { content: [{ type: "text", text: JSON.stringify(err) }], isError: true };
+    }
+
     const token = process.env.CHROME_MCP_TOKEN;
     const cfg = runtime.getConfig();
     // If connections exist, require valid token
@@ -92,7 +106,21 @@ export function createMcpServer(dataDir?: string, opts?: { mockBridge?: boolean 
         isError: true,
       };
     }
+    const t0 = Date.now();
     const result = await tool.run(parsed.data as Record<string, unknown>);
+    const durationMs = Date.now() - t0;
+    try {
+      const tel = getTelemetry(runtime.dataDir);
+      tel.trackToolCall(name, parsed.data, result, Boolean(result.ok), durationMs);
+      if (name.startsWith("browser_")) {
+        tel.trackBrowserAction(name, Boolean(result.ok), {
+          method: result.method,
+          error: result.error,
+        });
+      }
+    } catch {
+      /* telemetry never blocks tools */
+    }
     return {
       content: [{ type: "text", text: JSON.stringify(result) }],
       isError: !result.ok,

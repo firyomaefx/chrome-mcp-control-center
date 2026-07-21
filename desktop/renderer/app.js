@@ -10,6 +10,7 @@ const pages = {
   logs: { title: "Logs", sub: "Audit trail (redacted)" },
   diagnostics: { title: "Diagnostics", sub: "Health, repair, versions" },
   settings: { title: "Settings", sub: "Preferences and extension ID" },
+  cloud: { title: "Cloud & Privacy", sub: "Data agreement and sync status" },
   wizard: { title: "Setup Wizard", sub: "Guided first-run setup" },
 };
 
@@ -111,7 +112,40 @@ function showPage(name) {
   if (name === "home" || name === "chrome" || name === "diagnostics") refreshHome();
   if (name === "llm") refreshConnections();
   if (name === "settings") refreshSettings();
+  if (name === "cloud") refreshCloud();
   if (name === "wizard") renderWizard();
+}
+
+async function refreshCloud() {
+  try {
+    const st = await window.chromeMcp.get("/cloud/status");
+    const consent = await window.chromeMcp.get("/cloud/consent");
+    document.getElementById("cloud-status").innerHTML = `
+      <div>Consent: <strong>${st.consent?.accepted ? "accepted" : "REQUIRED"}</strong> (v${st.consent?.version || "—"})</div>
+      <div>Plan: <strong>${st.identity?.plan || "free"}</strong></div>
+      <div>Pending uploads: <strong>${st.sync?.pendingCount ?? "—"}</strong></div>
+      <div>Last successful sync: <strong>${st.sync?.lastSuccessAt || "never"}</strong></div>
+      <div>Last error: <strong>${st.sync?.lastError || "none"}</strong></div>
+      <div>User id (anonymous): <strong>${st.identity?.userId || "—"}</strong></div>
+    `;
+    const a = consent.agreement || {};
+    document.getElementById("cloud-agreement").textContent = JSON.stringify(
+      {
+        collected: a.collected,
+        paidExtra: a.paidExtra,
+        reasons: a.reasons,
+        neverCollected: a.neverCollected,
+        retentionDays: a.retentionDays,
+        deletion: a.deletion,
+        ownerContact: a.ownerContact,
+        freeNotLocalOnly: a.freeNotLocalOnly,
+      },
+      null,
+      2,
+    );
+  } catch (e) {
+    document.getElementById("cloud-status").textContent = String(e);
+  }
 }
 
 async function refreshConnections() {
@@ -163,6 +197,14 @@ async function refreshSettings() {
 // Wizard
 let wizStep = 0;
 const wizSteps = [
+  {
+    title: "Data processing agreement",
+    body: "Operational data is synchronized to improve the MCP (errors, failures, versions, domains). Free is not local-only for diagnostics. Passwords and secrets are never uploaded. You must accept to continue.",
+    action: async () => {
+      const c = await window.chromeMcp.get("/cloud/consent");
+      return JSON.stringify(c.agreement, null, 2);
+    },
+  },
   {
     title: "System check",
     body: "We check Windows, Chrome, storage, and local services.",
@@ -341,11 +383,42 @@ document.getElementById("btn-save-perm").onclick = async () => {
   });
   toast("Permissions saved");
 };
+document.getElementById("btn-accept-consent").onclick = async () => {
+  await window.chromeMcp.post("/cloud/consent", { accept: true, plan: "free" });
+  toast("Data agreement accepted — operational sync enabled");
+  refreshCloud();
+};
+document.getElementById("btn-cloud-flush").onclick = async () => {
+  const r = await window.chromeMcp.post("/cloud/flush");
+  toast(
+    r.result
+      ? `Synced: uploaded ${r.result.uploaded}, failed ${r.result.failed}`
+      : "Sync finished",
+  );
+  refreshCloud();
+};
+document.getElementById("btn-cloud-delete").onclick = async () => {
+  if (!confirm("Delete your cloud account data? Local history can remain on this PC.")) return;
+  const r = await window.chromeMcp.post("/cloud/delete-account");
+  toast(r.ok ? "Cloud data delete requested" : r.error || "Delete failed");
+  refreshCloud();
+};
+
 document.getElementById("wiz-back").onclick = () => {
   wizStep = Math.max(0, wizStep - 1);
   renderWizard();
 };
-document.getElementById("wiz-next").onclick = () => {
+document.getElementById("wiz-next").onclick = async () => {
+  // Step 0 = DPA — require accept
+  if (wizStep === 0) {
+    try {
+      await window.chromeMcp.post("/cloud/consent", { accept: true, plan: "free" });
+      toast("Agreement accepted");
+    } catch (e) {
+      toast("You must accept the data agreement: " + e.message);
+      return;
+    }
+  }
   if (wizStep >= wizSteps.length - 1) {
     showPage("home");
     toast("Wizard finished");

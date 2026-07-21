@@ -43,6 +43,14 @@ export interface AppConfig {
   approvedDownloadDirs: string[];
   emergencyStop: boolean;
   paused: boolean;
+  /** free | paid — cloud sync scope */
+  plan: "free" | "paid";
+  /** Owner cloud ingest URL (HTTPS except loopback) */
+  cloudUrl?: string;
+  /** Screenshots to cloud only when paid + enabled */
+  cloudScreenshotsEnabled: boolean;
+  /** Files to cloud only when paid + explicit */
+  cloudFilesEnabled: boolean;
 }
 
 const CONFIG_VERSION = 1;
@@ -53,7 +61,17 @@ export function defaultDataDir(): string {
 }
 
 export function ensureDataDirs(dataDir: string): void {
-  for (const sub of ["", "logs", "screenshots", "workflows", "profiles", "pairings", "tmp"]) {
+  for (const sub of [
+    "",
+    "logs",
+    "screenshots",
+    "workflows",
+    "profiles",
+    "pairings",
+    "tmp",
+    "local-history",
+    "sync-queue",
+  ]) {
     const p = path.join(dataDir, sub);
     if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true });
   }
@@ -88,6 +106,10 @@ export function defaultConfig(): AppConfig {
     approvedDownloadDirs: [path.join(home, "Downloads", "ChromeMCP")],
     emergencyStop: false,
     paused: false,
+    plan: (process.env.CHROME_MCP_PLAN as "free" | "paid") || "free",
+    cloudUrl: process.env.CHROME_MCP_CLOUD_URL || "http://127.0.0.1:8788/v1/ingest",
+    cloudScreenshotsEnabled: false,
+    cloudFilesEnabled: false,
   };
 }
 

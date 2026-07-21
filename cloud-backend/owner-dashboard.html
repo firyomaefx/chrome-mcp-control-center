@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Chrome MCP — Owner Improvement Dashboard</title>
+    <style>
+      :root {
+        --bg: #0b1220;
+        --panel: #121a2b;
+        --text: #e2e8f0;
+        --muted: #94a3b8;
+        --line: #1e293b;
+        --ok: #16a34a;
+        --bad: #dc2626;
+        --accent: #2563eb;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: "Segoe UI", system-ui, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        padding: 20px;
+      }
+      h1 {
+        margin: 0 0 8px;
+        font-size: 22px;
+      }
+      .muted {
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin: 16px 0;
+        align-items: end;
+      }
+      label {
+        display: grid;
+        gap: 4px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      input,
+      select,
+      button {
+        background: #0f172a;
+        border: 1px solid var(--line);
+        color: var(--text);
+        border-radius: 8px;
+        padding: 8px 10px;
+      }
+      button {
+        background: var(--accent);
+        border-color: #1d4ed8;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: 12px;
+      }
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 14px;
+      }
+      .card .v {
+        font-size: 22px;
+        font-weight: 700;
+        margin-top: 6px;
+      }
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 14px;
+        margin-top: 14px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 6px 8px;
+        border-bottom: 1px solid var(--line);
+      }
+      th {
+        color: var(--muted);
+        font-weight: 600;
+      }
+      pre {
+        overflow: auto;
+        max-height: 280px;
+        font-size: 11px;
+        background: #020617;
+        padding: 10px;
+        border-radius: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Owner Improvement Dashboard</h1>
+    <p class="muted">
+      Free + Paid operational sync. Never shows passwords, cookies, or tokens (redacted at source).
+    </p>
+
+    <div class="bar">
+      <label
+        >Owner key
+        <input id="ownerKey" type="password" placeholder="CHROME_MCP_OWNER_KEY" style="min-width: 220px"
+      /></label>
+      <label>Plan
+        <select id="plan">
+          <option value="">All</option>
+          <option value="free">Free</option>
+          <option value="paid">Paid</option>
+        </select>
+      </label>
+      <label>Domain <input id="domain" placeholder="example.com" /></label>
+      <label>App version <input id="appVersion" /></label>
+      <label>Chrome version <input id="chromeVersion" /></label>
+      <label>AI model <input id="aiModel" placeholder="claude / codex" /></label>
+      <label>Since (ISO) <input id="since" placeholder="2026-07-01" /></label>
+      <button id="refresh">Refresh</button>
+    </div>
+
+    <div class="grid" id="kpis"></div>
+
+    <div class="panel">
+      <h3>Most common errors</h3>
+      <table id="tbl-errors"><thead><tr><th>Error</th><th>Count</th></tr></thead><tbody></tbody></table>
+    </div>
+    <div class="panel">
+      <h3>Failed actions</h3>
+      <table id="tbl-actions"><thead><tr><th>Action</th><th>Count</th></tr></thead><tbody></tbody></table>
+    </div>
+    <div class="panel">
+      <h3>Broken selectors</h3>
+      <table id="tbl-sel"><thead><tr><th>Selector</th><th>Count</th></tr></thead><tbody></tbody></table>
+    </div>
+    <div class="panel">
+      <h3>Domain failures</h3>
+      <table id="tbl-dom"><thead><tr><th>Domain</th><th>Count</th></tr></thead><tbody></tbody></table>
+    </div>
+    <div class="panel">
+      <h3>Codex vs Claude / models</h3>
+      <pre id="models"></pre>
+    </div>
+    <div class="panel">
+      <h3>Raw metrics JSON</h3>
+      <pre id="raw"></pre>
+    </div>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      $("ownerKey").value = localStorage.getItem("ownerKey") || "dev-owner-change-me";
+
+      function rows(tbody, items, cols) {
+        tbody.innerHTML = (items || [])
+          .map((it) => "<tr>" + cols.map((c) => `<td>${escapeHtml(it[c])}</td>`).join("") + "</tr>")
+          .join("");
+      }
+      function escapeHtml(s) {
+        return String(s ?? "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+      }
+
+      async function load() {
+        const key = $("ownerKey").value.trim();
+        localStorage.setItem("ownerKey", key);
+        const q = new URLSearchParams();
+        if ($("plan").value) q.set("plan", $("plan").value);
+        if ($("domain").value) q.set("domain", $("domain").value);
+        if ($("appVersion").value) q.set("appVersion", $("appVersion").value);
+        if ($("chromeVersion").value) q.set("chromeVersion", $("chromeVersion").value);
+        if ($("aiModel").value) q.set("aiModel", $("aiModel").value);
+        if ($("since").value) q.set("since", $("since").value);
+
+        const res = await fetch("/v1/owner/metrics?" + q.toString(), {
+          headers: { Authorization: "Bearer " + key },
+        });
+        const m = await res.json();
+        if (!res.ok) {
+          $("raw").textContent = JSON.stringify(m, null, 2);
+          return;
+        }
+        $("kpis").innerHTML = [
+          ["Active users", m.totalActiveUsers],
+          ["Free users", m.freeUsers],
+          ["Paid users", m.paidUsers],
+          ["Successful tasks", m.successfulTasks],
+          ["Failed tasks", m.failedTasks],
+          ["Failure rate", (m.failureRate * 100).toFixed(1) + "%"],
+          ["Recovery success", (m.recoverySuccessRate * 100).toFixed(1) + "%"],
+          ["Avg recovery attempts", Number(m.averageRecoveryAttempts || 0).toFixed(2)],
+          ["Crashes", m.crashFrequency],
+          ["Events", m.eventCount],
+        ]
+          .map(
+            ([l, v]) =>
+              `<div class="card"><div class="muted">${l}</div><div class="v">${v ?? "—"}</div></div>`,
+          )
+          .join("");
+
+        rows($("tbl-errors").querySelector("tbody"), m.mostCommonErrors, ["name", "count"]);
+        rows($("tbl-actions").querySelector("tbody"), m.mostCommonFailedActions, ["name", "count"]);
+        rows($("tbl-sel").querySelector("tbody"), m.brokenSelectors, ["selector", "count"]);
+        rows($("tbl-dom").querySelector("tbody"), m.websiteDomainFailures, ["domain", "count"]);
+        $("models").textContent = JSON.stringify(m.codexVsClaude || {}, null, 2);
+        $("raw").textContent = JSON.stringify(m, null, 2);
+      }
+
+      $("refresh").onclick = () => load().catch((e) => ($("raw").textContent = String(e)));
+      load().catch(() => {});
+    </script>
+  </body>
+</html>

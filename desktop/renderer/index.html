@@ -25,6 +25,7 @@
         <button data-page="logs" class="nav-btn">Logs</button>
         <button data-page="diagnostics" class="nav-btn">Diagnostics</button>
         <button data-page="settings" class="nav-btn">Settings</button>
+        <button data-page="cloud" class="nav-btn">Cloud &amp; Privacy</button>
         <button data-page="wizard" class="nav-btn">Setup Wizard</button>
         <div class="nav-foot muted" id="runtime-pill">Runtime: …</div>
       </aside>
@@ -164,10 +165,28 @@
         <section id="page-settings" class="page">
           <div class="panel">
             <h3>Settings</h3>
-            <p class="muted">Automatic startup and telemetry stay off unless you enable them.</p>
+            <p class="muted">Start with Windows stays off unless you enable it. Cloud ops sync requires consent.</p>
             <label>Extension ID <input id="ext-id" placeholder="from chrome://extensions" /></label>
             <button class="btn primary" id="btn-save-settings">Save</button>
             <div class="kv" id="settings-kv"></div>
+          </div>
+        </section>
+
+        <section id="page-cloud" class="page">
+          <div class="panel">
+            <h3>Cloud improvement sync</h3>
+            <p class="muted">
+              Free and Paid both sync operational data so the product can improve. Free is
+              <strong>not</strong> local-only for diagnostics. Passwords, cookies, tokens, and payment
+              data are never uploaded.
+            </p>
+            <div class="kv" id="cloud-status"></div>
+            <div class="actions">
+              <button class="btn primary" id="btn-accept-consent">Accept data agreement</button>
+              <button class="btn" id="btn-cloud-flush">Sync now</button>
+              <button class="btn danger" id="btn-cloud-delete">Delete my cloud data</button>
+            </div>
+            <pre id="cloud-agreement" class="code"></pre>
           </div>
         </section>
 

@@ -90,6 +90,101 @@ export async function startHttpServer(
         res.end(JSON.stringify(report));
         return;
       }
+
+      // Cloud improvement sync (consent + status + flush + delete)
+      if (url.pathname === "/cloud/status" && req.method === "GET") {
+        const { getTelemetry } = await import("../cloud/telemetry.js");
+        res.end(JSON.stringify(getTelemetry(dataDir).status()));
+        return;
+      }
+      if (url.pathname === "/cloud/consent" && req.method === "GET") {
+        const { getTelemetry } = await import("../cloud/telemetry.js");
+        const { CONSENT_VERSION, FREE_CLOUD_RETENTION_DAYS, PAID_CLOUD_RETENTION_DAYS } =
+          await import("../cloud/types.js");
+        res.end(
+          JSON.stringify({
+            consent: getTelemetry(dataDir).getStore().getConsent(),
+            requiredVersion: CONSENT_VERSION,
+            agreement: {
+              title: "Data processing agreement — Chrome MCP improvement sync",
+              collected: [
+                "Task prompts and normalized objectives",
+                "MCP tool calls and browser action types",
+                "Failed actions, console/network/automation errors",
+                "Recovery attempts and results",
+                "Task duration and result",
+                "Chrome / MCP / OS versions",
+                "Website domain (not full credential URLs)",
+                "Crash and restart records",
+                "Anonymous usage metrics",
+              ],
+              paidExtra: [
+                "Complete task and AI response history",
+                "Workflow versions and encrypted backups",
+                "Multi-device settings and restore points",
+                "Screenshots/files only when explicitly enabled",
+              ],
+              reasons: [
+                "Detect recurring errors and broken selectors",
+                "Improve browser automation and recovery",
+                "Compare model performance (e.g. Codex vs Claude)",
+                "Monitor Chrome compatibility",
+                "Prioritize product fixes and MCP releases",
+              ],
+              neverCollected: [
+                "Passwords",
+                "Cookies and session tokens",
+                "API keys",
+                "OTP / authentication codes",
+                "Credit cards and bank information",
+                "Private encryption keys",
+              ],
+              retentionDays: { free: FREE_CLOUD_RETENTION_DAYS, paid: PAID_CLOUD_RETENTION_DAYS },
+              deletion: "Settings → Delete my cloud data, or DELETE /cloud/delete-account",
+              ownerContact: process.env.CHROME_MCP_OWNER_CONTACT || "owner@chromemcp.local",
+              freeNotLocalOnly:
+                "Free edition includes mandatory operational cloud sync so the product can improve. Local history remains on your device.",
+            },
+          }),
+        );
+        return;
+      }
+      if (url.pathname === "/cloud/consent" && req.method === "POST") {
+        const body = await readBody(req);
+        if (!body.accept) {
+          res.statusCode = 400;
+          res.end(JSON.stringify({ error: "accept must be true to use the application" }));
+          return;
+        }
+        const { getTelemetry } = await import("../cloud/telemetry.js");
+        const plan = body.plan === "paid" ? "paid" : "free";
+        getTelemetry(dataDir).acceptConsent(plan, typeof body.contactEmail === "string" ? body.contactEmail : undefined);
+        getTelemetry(dataDir).trackUsage("consent_accepted", 1, { plan });
+        res.end(JSON.stringify({ ok: true, status: getTelemetry(dataDir).status() }));
+        return;
+      }
+      if (url.pathname === "/cloud/flush" && req.method === "POST") {
+        const { getTelemetry } = await import("../cloud/telemetry.js");
+        const result = await getTelemetry(dataDir).getSync().flush();
+        res.end(JSON.stringify({ ok: true, result, status: getTelemetry(dataDir).status() }));
+        return;
+      }
+      if (url.pathname === "/cloud/delete-account" && req.method === "POST") {
+        const { getTelemetry } = await import("../cloud/telemetry.js");
+        const result = await getTelemetry(dataDir).getSync().deleteCloudAccount();
+        res.end(JSON.stringify(result));
+        return;
+      }
+      if (url.pathname === "/cloud/track-prompt" && req.method === "POST") {
+        const body = await readBody(req);
+        const { getTelemetry } = await import("../cloud/telemetry.js");
+        getTelemetry(dataDir).trackTaskPrompt(String(body.prompt || ""), {
+          source: body.source || "api",
+          aiModel: body.aiModel,
+        });
+        res.end(JSON.stringify({ ok: true }));
+        return;
+      }
       if (url.pathname === "/control/pair" && req.method === "POST") {
         const body = await readBody(req);
         const name = String(body.name || "default");

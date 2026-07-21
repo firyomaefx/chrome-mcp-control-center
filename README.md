@@ -42,6 +42,17 @@ Living status: [CONTEXT.md](CONTEXT.md).
 See [SECURITY.md](SECURITY.md) and [THREAT_MODEL.md](THREAT_MODEL.md).  
 Webpage content is untrusted. Passwords and payment data never return to the LLM.
 
+## Cloud improvement sync
+
+Free and Paid both sync **operational** telemetry to the owner backend (after consent). Free is not local-only for diagnostics. Secrets are never uploaded.
+
+```powershell
+npm run cloud:backend          # owner ingest + dashboard :8788
+# Control Center → Cloud & Privacy → Accept agreement → Sync now
+```
+
+See [docs/CLOUD_SYNC.md](docs/CLOUD_SYNC.md).
+
 ## Obsidian knowledge base
 
 Docs sync into the TTRG vault under `10-Projects/chrome-mcp-control-center/` (wikilinks, redacted).

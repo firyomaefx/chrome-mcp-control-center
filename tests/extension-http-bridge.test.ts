@@ -25,7 +25,8 @@ async function jfetch(p: string, init?: RequestInit) {
 describe("extension HTTP bridge (simulated extension)", () => {
   before(async () => {
     const cfg = defaultConfig();
-    cfg.httpPort = 19887;
+    // Unique port not in extension PORT_CANDIDATES (avoids real Chrome extension racing)
+    cfg.httpPort = 39187;
     cfg.emergencyStop = false;
     cfg.paused = false;
     cfg.permissionMode = "allow_low_risk";
@@ -41,7 +42,7 @@ describe("extension HTTP bridge (simulated extension)", () => {
     });
     port = handle.port;
     close = handle.close;
-    assert.equal(port, 19887);
+    assert.equal(port, 39187);
 
     stopWorker = false;
     workerDone = (async function extensionWorker() {

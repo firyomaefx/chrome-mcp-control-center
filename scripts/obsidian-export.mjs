@@ -77,6 +77,7 @@ const EXPORT_MAP = [
   { src: "docs/MCP_TOOLS.md", dest: "MCP_TOOLS.md", title: "MCP tools" },
   { src: "docs/USER_GUIDE.md", dest: "USER_GUIDE.md", title: "User guide" },
   { src: "docs/OBSIDIAN.md", dest: "OBSIDIAN.md", title: "Obsidian integration" },
+  { src: "docs/CLOUD_SYNC.md", dest: "CLOUD_SYNC.md", title: "Cloud improvement sync" },
   { src: "docs/adr/0001-electron-control-center.md", dest: "ADR-0001-electron.md", title: "ADR 0001 Electron" },
   { src: "docs/adr/0002-native-messaging.md", dest: "ADR-0002-native-messaging.md", title: "ADR 0002 Native Messaging" },
 ];

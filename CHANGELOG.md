@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.0.3 — 2026-07-21 (Cloud improvement sync)
+
+### Added
+
+- Mandatory Free + Paid operational cloud sync (local-first queue, retry, dedupe)
+- Consent / DPA gate before MCP tools (wizard + Cloud & Privacy page)
+- Sensitive field redaction (`[REDACTED]` + character_count)
+- Owner cloud backend (`cloud-backend/server.mjs`) + improvement dashboard
+- Owner metrics: errors, broken selectors, recovery, Chrome/domain/MCP, Codex vs Claude
+- Free retains local history; Paid scopes add AI responses / workflow cloud kinds
+
 ## 1.0.2 — 2026-07-21 (Chrome 150 connect)
 
 ### Root cause (your health dump)
