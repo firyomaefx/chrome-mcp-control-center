@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.0.2 — 2026-07-21 (Chrome 150 connect)
+
+### Root cause (your health dump)
+
+Chrome **150.x removed `--load-extension`** on branded Chrome. v1.0.1 relaunched Chrome with that flag → extension never loaded → `connected: false` forever while Chrome/native host looked fine.
+
+### Fix
+
+- Pack local **CRX** (Chrome `--pack-extension`, still works)
+- **HKCU force-install policy** (`ExtensionInstallForcelist` + install sources)
+- `file://` update.xml/crx so install does not depend on HTTP being up
+- Serve CRX/update.xml on loopback for updates
+- Relaunch Chrome so policy applies
+
 ## 1.0.1 — 2026-07-21 (Connect CAPA)
 
 ### Fixed (critical)

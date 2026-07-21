@@ -4,6 +4,7 @@
  */
 
 import http from "node:http";
+import fs from "node:fs";
 import { createRuntime } from "./server.js";
 import { authenticateToken, defaultDataDir, loadConfig, saveConfig } from "../config.js";
 import { Supervisor } from "../supervisor/supervisor.js";
@@ -178,6 +179,33 @@ export async function startHttpServer(
 
       if (url.pathname === "/extension/status" && req.method === "GET") {
         res.end(JSON.stringify(bridge.status()));
+        return;
+      }
+
+      // CRX force-install assets (Chrome 137+ / 150 — --load-extension removed)
+      if (url.pathname === "/extension/update.xml" && req.method === "GET") {
+        const p = path.join(dataDir, "crx", "update.xml");
+        if (!fs.existsSync(p)) {
+          res.statusCode = 404;
+          res.end("missing update.xml — run Connect Chrome first");
+          return;
+        }
+        res.setHeader("Content-Type", "application/xml");
+        res.end(fs.readFileSync(p));
+        return;
+      }
+      if (
+        (url.pathname === "/extension/chrome-mcp.crx" || url.pathname === "/extension/extension.crx") &&
+        req.method === "GET"
+      ) {
+        const p = path.join(dataDir, "crx", "chrome-mcp.crx");
+        if (!fs.existsSync(p)) {
+          res.statusCode = 404;
+          res.end("missing crx");
+          return;
+        }
+        res.setHeader("Content-Type", "application/x-chrome-extension");
+        res.end(fs.readFileSync(p));
         return;
       }
 

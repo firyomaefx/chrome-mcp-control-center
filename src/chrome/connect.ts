@@ -1,11 +1,12 @@
 /**
  * Single-click Chrome + extension connection orchestration.
  *
- * Strategy: stage extension → repair NM → if not connected, (re)launch Chrome
- * with --load-extension on the user's real profile (no custom user-data-dir).
+ * Chrome 137+/150 removed --load-extension on branded Chrome.
+ * Primary path: pack CRX + HKCU ExtensionInstallForcelist + relaunch Chrome.
+ * Fallback: legacy --load-extension flags for older Chrome / Chromium.
  */
 
-import { spawn, execSync } from "node:child_process";
+import { spawn, execSync, execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { loadConfig, saveConfig } from "../config.js";
@@ -13,6 +14,8 @@ import { bridge, getBridgeStatus } from "../browser/bridge.js";
 import { findChromePath, registerNativeHost, writeHostLauncher, writeNativeHostManifest } from "../diagnostics/windows.js";
 import { repairSystem } from "../diagnostics/repair.js";
 import { stageExtension } from "./stage-extension.js";
+import { packExtensionCrx, writeUpdateXml } from "./pack-crx.js";
+import { applyForceInstallPolicy } from "./policy.js";
 import { fileURLToPath } from "node:url";
 
 export interface ConnectReport {
@@ -21,6 +24,8 @@ export interface ConnectReport {
   stagedPath?: string;
   extensionId?: string;
   chromePath?: string;
+  chromeVersion?: string;
+  method?: "policy-crx" | "load-extension" | "already-connected" | "mock";
   relaunched: boolean;
   connected: boolean;
   error?: string;
@@ -30,6 +35,31 @@ export interface ConnectReport {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
+}
+
+export function getChromeVersion(chromePath: string): string {
+  try {
+    if (process.platform === "win32") {
+      const out = execFileSync(
+        "powershell.exe",
+        [
+          "-NoProfile",
+          "-Command",
+          `(Get-Item -LiteralPath '${chromePath.replace(/'/g, "''")}').VersionInfo.FileVersion`,
+        ],
+        { encoding: "utf8", windowsHide: true, timeout: 10000 },
+      ).trim();
+      return out || "unknown";
+    }
+  } catch {
+    /* ignore */
+  }
+  return "unknown";
+}
+
+function chromeMajor(version: string): number {
+  const n = parseInt(version.split(".")[0] || "0", 10);
+  return Number.isFinite(n) ? n : 0;
 }
 
 export function isChromeRunning(): boolean {
@@ -46,7 +76,6 @@ export function isChromeRunning(): boolean {
   }
 }
 
-/** Gracefully stop Chrome so --load-extension is honored on next start. */
 export function stopChromeProcesses(): string[] {
   const steps: string[] = [];
   if (process.platform !== "win32") {
@@ -66,14 +95,26 @@ export function stopChromeProcesses(): string[] {
   return steps;
 }
 
+/** Legacy path for Chromium / old Chrome */
 export function launchChromeWithExtension(chromePath: string, extensionPath: string): void {
   const args = [
+    `--disable-features=DisableLoadExtensionCommandLineSwitch`,
     `--load-extension=${extensionPath}`,
     "--no-first-run",
     "--no-default-browser-check",
     "--restore-last-session",
   ];
-  // Detached so Control Center is not tied to Chrome lifetime
+  const child = spawn(chromePath, args, {
+    detached: true,
+    stdio: "ignore",
+    windowsHide: false,
+  });
+  child.unref();
+}
+
+/** Normal launch after policy applied (force-install on startup) */
+export function launchChromeNormal(chromePath: string): void {
+  const args = ["--no-first-run", "--no-default-browser-check", "--restore-last-session"];
   const child = spawn(chromePath, args, {
     detached: true,
     stdio: "ignore",
@@ -83,7 +124,7 @@ export function launchChromeWithExtension(chromePath: string, extensionPath: str
 }
 
 export async function waitForExtensionConnected(
-  timeoutMs = 45000,
+  timeoutMs = 60000,
   pollMs = 500,
 ): Promise<{ connected: boolean; extensionId?: string }> {
   const deadline = Date.now() + timeoutMs;
@@ -115,27 +156,24 @@ function rebindNativeHost(dataDir: string, extensionId?: string): string[] {
 
 export interface ConnectOptions {
   dataDir: string;
-  /** Skip waiting (tests) */
   skipWait?: boolean;
-  /** Force relaunch even if already connected */
   forceRelaunch?: boolean;
-  /** Wait timeout for extension register */
   timeoutMs?: number;
-  /** Source extension dir override */
   extensionSource?: string;
-  /** Do not kill/launch Chrome (unit tests) */
   dryRun?: boolean;
 }
 
 /**
- * Full single-click connect path.
+ * Full single-click connect path for modern Chrome (policy CRX) + legacy fallback.
  */
 export async function connectChrome(opts: ConnectOptions): Promise<ConnectReport> {
   const t0 = Date.now();
   const steps: string[] = [];
   let relaunched = false;
+  let method: ConnectReport["method"] = "policy-crx";
 
   try {
+    const port = Number(process.env.CHROME_MCP_HTTP_PORT || loadConfig(opts.dataDir).httpPort || 18787);
     const { stagedPath, sourceDir } = stageExtension(opts.dataDir, opts.extensionSource);
     steps.push(`Staged extension from ${sourceDir} → ${stagedPath}`);
 
@@ -157,6 +195,7 @@ export async function connectChrome(opts: ConnectOptions): Promise<ConnectReport
         steps,
         stagedPath,
         extensionId: st.extensionId,
+        method: "already-connected",
         relaunched: false,
         connected: true,
         durationMs: Date.now() - t0,
@@ -176,19 +215,50 @@ export async function connectChrome(opts: ConnectOptions): Promise<ConnectReport
         durationMs: Date.now() - t0,
       };
     }
-    steps.push(`Chrome found: ${chromePath}`);
+    const chromeVersion = getChromeVersion(chromePath);
+    const major = chromeMajor(chromeVersion);
+    steps.push(`Chrome found: ${chromePath} (v${chromeVersion})`);
+
+    // Pack CRX + policy (works on Chrome 150 when --load-extension is dead)
+    let extensionId: string | undefined;
+    let packOk = false;
+    try {
+      const packed = packExtensionCrx(opts.dataDir, stagedPath);
+      extensionId = packed.extensionId;
+      writeUpdateXml(opts.dataDir, packed.extensionId, packed.version, port);
+      steps.push(`Packed CRX id=${packed.extensionId} v${packed.version}`);
+      const updateUrl = `http://127.0.0.1:${port}/extension/update.xml`;
+      const pol = applyForceInstallPolicy(packed.extensionId, updateUrl);
+      steps.push(...pol.steps);
+      packOk = pol.ok;
+      method = "policy-crx";
+
+      const cfg = loadConfig(opts.dataDir);
+      saveConfig(opts.dataDir, { ...cfg, extensionId: packed.extensionId });
+      steps.push(...rebindNativeHost(opts.dataDir, packed.extensionId));
+    } catch (e) {
+      steps.push(`CRX/policy path failed: ${e instanceof Error ? e.message : String(e)}`);
+      packOk = false;
+    }
 
     if (!opts.dryRun) {
-      if (isChromeRunning() || opts.forceRelaunch) {
+      if (isChromeRunning() || opts.forceRelaunch || packOk) {
         steps.push(...stopChromeProcesses());
-        // Brief pause so profile locks release
-        await sleep(1500);
+        await sleep(2000);
         relaunched = true;
-      } else {
-        steps.push("Chrome was not running — cold start with extension");
       }
-      launchChromeWithExtension(chromePath, stagedPath);
-      steps.push(`Launched Chrome with --load-extension=${stagedPath}`);
+
+      if (packOk) {
+        launchChromeNormal(chromePath);
+        steps.push("Launched Chrome (force-install policy active)");
+      } else {
+        // Legacy / Chromium fallback
+        method = "load-extension";
+        launchChromeWithExtension(chromePath, stagedPath);
+        steps.push(
+          `Launched Chrome with --load-extension (legacy; may be ignored on Chrome ${major}+)`,
+        );
+      }
     } else {
       steps.push("dryRun: skipped Chrome launch");
     }
@@ -199,34 +269,43 @@ export async function connectChrome(opts: ConnectOptions): Promise<ConnectReport
         steps,
         stagedPath,
         chromePath,
+        chromeVersion,
+        extensionId,
+        method,
         relaunched,
         connected: getBridgeStatus().connected,
         durationMs: Date.now() - t0,
       };
     }
 
-    steps.push("Waiting for extension to register over HTTP…");
-    const waited = await waitForExtensionConnected(opts.timeoutMs ?? 45000);
+    steps.push("Waiting for extension to register over HTTP (up to 60s)…");
+    const waited = await waitForExtensionConnected(opts.timeoutMs ?? 60000);
     if (!waited.connected) {
       return {
         ok: false,
         steps,
         stagedPath,
         chromePath,
+        chromeVersion,
+        extensionId,
+        method,
         relaunched,
         connected: false,
         error: "EXTENSION_NOT_CONNECTED",
         repairAction:
-          "Chrome started but extension did not register. Click Connect Chrome again, or check that Control Center services are running on port 18787.",
+          major >= 137
+            ? "Chrome 137+ blocks --load-extension. We applied force-install policy + CRX. Open chrome://policy and confirm ExtensionInstallForcelist is set, then click Connect Chrome again. If policy is blocked by organization, load the staged extension once via chrome://extensions → Load unpacked."
+            : "Extension did not register. Click Connect Chrome again.",
         durationMs: Date.now() - t0,
       };
     }
 
     steps.push(`Extension registered${waited.extensionId ? ` (id ${waited.extensionId})` : ""}`);
-    if (waited.extensionId) {
+    const finalId = waited.extensionId || extensionId;
+    if (finalId) {
       const cfg = loadConfig(opts.dataDir);
-      saveConfig(opts.dataDir, { ...cfg, extensionId: waited.extensionId, wizardCompleted: true });
-      steps.push(...rebindNativeHost(opts.dataDir, waited.extensionId));
+      saveConfig(opts.dataDir, { ...cfg, extensionId: finalId, wizardCompleted: true });
+      steps.push(...rebindNativeHost(opts.dataDir, finalId));
     }
 
     return {
@@ -234,7 +313,9 @@ export async function connectChrome(opts: ConnectOptions): Promise<ConnectReport
       steps,
       stagedPath,
       chromePath,
-      extensionId: waited.extensionId,
+      chromeVersion,
+      extensionId: finalId,
+      method,
       relaunched,
       connected: true,
       durationMs: Date.now() - t0,
@@ -254,13 +335,13 @@ export async function connectChrome(opts: ConnectOptions): Promise<ConnectReport
   }
 }
 
-/** For supervisor: ensure connected, relaunch if needed. */
 export async function ensureChromeConnected(dataDir: string): Promise<ConnectReport> {
   if (bridge.isMock() || process.env.CHROME_MCP_MOCK === "1") {
     bridge.enableMock();
     return {
       ok: true,
       steps: ["Mock bridge enabled"],
+      method: "mock",
       relaunched: false,
       connected: true,
       durationMs: 0,

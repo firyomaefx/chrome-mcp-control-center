@@ -1,6 +1,6 @@
 {
   "name": "chrome-mcp-control-center",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": true,
   "description": "Single-click Windows Chrome Computer-Use MCP — Control Center, MCP server, extension, and supervisor.",
   "license": "MIT",
@@ -18,7 +18,7 @@
     "start": "node dist/cli.js",
     "serve": "node dist/cli.js serve",
     "serve:http": "node dist/cli.js serve-http",
-    "test": "node --test --import tsx tests/permissions.test.ts tests/redact.test.ts tests/supervisor.test.ts tests/vertical-slice.test.ts tests/autofill.test.ts tests/computer-use.test.ts tests/extension-http-bridge.test.ts tests/connect-chrome.test.ts",
+    "test": "node --test --import tsx tests/permissions.test.ts tests/redact.test.ts tests/supervisor.test.ts tests/vertical-slice.test.ts tests/autofill.test.ts tests/computer-use.test.ts tests/extension-http-bridge.test.ts tests/connect-chrome.test.ts tests/extension-id.test.ts",
     "test:e2e-bridge": "node --import tsx tests/extension-http-bridge.test.ts",
     "typecheck": "tsc --noEmit",
     "bundle:runtime": "esbuild dist/cli.js --bundle --platform=node --format=esm --target=node20 --outfile=desktop/runtime-bundle.mjs --external:electron",
@@ -37,6 +37,7 @@
   ],
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1",
+    "crx": "^5.0.1",
     "zod": "^3.24.2",
     "zod-to-json-schema": "^3.24.5"
   },
