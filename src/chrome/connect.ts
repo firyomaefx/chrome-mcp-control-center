@@ -7,11 +7,15 @@
  */
 
 import { spawn, execSync, execFileSync } from "node:child_process";
-import fs from "node:fs";
 import path from "node:path";
 import { loadConfig, saveConfig } from "../config.js";
 import { bridge, getBridgeStatus } from "../browser/bridge.js";
-import { findChromePath, registerNativeHost, writeHostLauncher, writeNativeHostManifest } from "../diagnostics/windows.js";
+import {
+  findChromePath,
+  registerNativeHost,
+  writeHostLauncher,
+  writeNativeHostManifest,
+} from "../diagnostics/windows.js";
 import { repairSystem } from "../diagnostics/repair.js";
 import { stageExtension } from "./stage-extension.js";
 import { packExtensionCrx, writeUpdateXml } from "./pack-crx.js";
@@ -225,11 +229,18 @@ export async function connectChrome(opts: ConnectOptions): Promise<ConnectReport
     try {
       const packed = packExtensionCrx(opts.dataDir, stagedPath);
       extensionId = packed.extensionId;
-      writeUpdateXml(opts.dataDir, packed.extensionId, packed.version, port);
-      steps.push(`Packed CRX id=${packed.extensionId} v${packed.version}`);
-      const updateUrl = `http://127.0.0.1:${port}/extension/update.xml`;
-      const pol = applyForceInstallPolicy(packed.extensionId, updateUrl);
+      const urls = writeUpdateXml(
+        opts.dataDir,
+        packed.extensionId,
+        packed.version,
+        port,
+        packed.crxPath,
+      );
+      steps.push(`Packed CRX id=${packed.extensionId} v=${packed.version}`);
+      // file:// update URL so force-install works without HTTP dependency
+      const pol = applyForceInstallPolicy(packed.extensionId, urls.updateUrlFile);
       steps.push(...pol.steps);
+      steps.push(`Policy update URL: ${urls.updateUrlFile}`);
       packOk = pol.ok;
       method = "policy-crx";
 
@@ -252,7 +263,6 @@ export async function connectChrome(opts: ConnectOptions): Promise<ConnectReport
         launchChromeNormal(chromePath);
         steps.push("Launched Chrome (force-install policy active)");
       } else {
-        // Legacy / Chromium fallback
         method = "load-extension";
         launchChromeWithExtension(chromePath, stagedPath);
         steps.push(
