@@ -42,6 +42,16 @@ Living status: [CONTEXT.md](CONTEXT.md).
 See [SECURITY.md](SECURITY.md) and [THREAT_MODEL.md](THREAT_MODEL.md).  
 Webpage content is untrusted. Passwords and payment data never return to the LLM.
 
+## Obsidian knowledge base
+
+Docs sync into the TTRG vault under `10-Projects/chrome-mcp-control-center/` (wikilinks, redacted).
+
+```powershell
+npm run obsidian:export
+```
+
+Runs automatically after `npm run build` and `npm run desktop:pack`. Secrets and private logs are excluded.
+
 ## License
 
 MIT

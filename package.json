@@ -14,6 +14,7 @@
   },
   "scripts": {
     "build": "tsc && node scripts/copy-assets.mjs",
+    "postbuild": "node scripts/obsidian-export.mjs",
     "dev": "tsc --watch",
     "start": "node dist/cli.js",
     "serve": "node dist/cli.js serve",
@@ -23,7 +24,8 @@
     "typecheck": "tsc --noEmit",
     "bundle:runtime": "esbuild dist/cli.js --bundle --platform=node --format=esm --target=node20 --outfile=desktop/runtime-bundle.mjs --external:electron",
     "desktop": "npm run build && npm run bundle:runtime && npm --prefix desktop start",
-    "desktop:pack": "npm run build && npm run bundle:runtime && npm --prefix desktop run dist",
+    "desktop:pack": "npm run build && npm run bundle:runtime && npm --prefix desktop run dist && node scripts/obsidian-export.mjs",
+    "obsidian:export": "node scripts/obsidian-export.mjs",
     "health": "node dist/cli.js health",
     "repair": "node dist/cli.js repair"
   },

@@ -21,3 +21,16 @@
 ## User decision
 
 Auto-relaunch Chrome when extension not connected (no confirm dialog).
+
+## Obsidian
+
+Vault: `C:\Users\Pedot\OneDrive\Obsidian\TTRG`  
+Project notes: `10-Projects/chrome-mcp-control-center/`  
+
+Export (redacted docs + INDEX / Progress / Decisions):
+
+```powershell
+npm run obsidian:export
+```
+
+Also runs on `postbuild` and after `desktop:pack`. Never exports tokens, pairing secrets, or private logs.
