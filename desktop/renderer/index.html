@@ -47,6 +47,13 @@
             <div class="muted" id="overall-detail">Click Start All when you are ready.</div>
           </div>
           <div class="grid cards" id="component-cards"></div>
+          <div id="machine-banner" class="panel" hidden style="border-color: #ca8a04; margin-bottom: 12px">
+            <strong>New or different PC detected.</strong>
+            <p class="muted" id="machine-banner-text" style="margin: 6px 0">
+              Paths and Chrome setup from another computer will be reconfigured automatically.
+            </p>
+            <button class="btn primary" id="btn-prepare-pc">Prepare this PC</button>
+          </div>
           <div class="actions big">
             <button class="btn primary lg" id="btn-start">Start All</button>
             <button class="btn lg" id="btn-stop">Stop All</button>
@@ -54,7 +61,9 @@
             <button class="btn lg" id="btn-pair">Pair LLM</button>
             <button class="btn lg" id="btn-health">Run Health Check</button>
             <button class="btn lg" id="btn-repair">Repair System</button>
+            <button class="btn lg" id="btn-prepare-pc-2">Prepare this PC</button>
           </div>
+          <pre id="heal-log" class="code" hidden></pre>
           <div class="panel">
             <h3>Session</h3>
             <div class="kv" id="session-kv"></div>

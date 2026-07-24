@@ -31,3 +31,32 @@ $env:CHROME_MCP_ALLOW_NO_CONSENT=1; npm test
 
 Runtime code must not embed `C:\Users\<name>\...`.  
 Samples use `%APPDATA%` / `<path-to-repo>` placeholders.
+
+## Moved to another PC?
+
+The app **detects a different machine** (hostname / machine id / missing old paths) and auto-repairs:
+
+1. Open Control Center  
+2. If you see **“New or different PC detected”** → click **Prepare this PC**  
+   (or just **Start All** — it runs the same heal playbook)  
+3. Accept data agreement if prompted  
+4. Chrome may relaunch once to load the extension  
+
+### What auto-heal fixes
+
+| Issue | Action |
+|-------|--------|
+| Paths from old PC in launch-config | Rewrite for this install |
+| Stale native host registry | Re-register |
+| Extension not staged | Copy extension into this data dir |
+| Port 18787 busy | Pick a free port |
+| Extension not connected | Connect Chrome / force-install |
+| Force-install policy stale | Re-pack CRX + re-apply policy |
+
+### What you still do manually
+
+- Install Chrome if missing  
+- Accept the data agreement  
+- Re-pair LLM if the old absolute path was saved in a client config  
+
+Heal log appears under Home after Prepare / Repair.

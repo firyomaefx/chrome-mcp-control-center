@@ -82,7 +82,7 @@ export async function runHealthCheck(
     ports: { httpPort: cfg.httpPort, conflict: false },
     disk: { ok: fs.existsSync(dataDir), dataDir },
     versions: {
-      app: "1.0.2",
+      app: "1.0.3",
       node: process.version,
       platform: `${os.platform()} ${os.release()}`,
     },

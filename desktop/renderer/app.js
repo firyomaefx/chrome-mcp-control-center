@@ -54,6 +54,19 @@ async function refreshHome() {
     state = { overall: "stopped", mcp: "stopped", lastError: "Runtime not reachable" };
   }
 
+  // New PC banner
+  const banner = document.getElementById("machine-banner");
+  if (banner) {
+    if (health.machine?.foreign) {
+      banner.hidden = false;
+      document.getElementById("machine-banner-text").textContent =
+        "Reasons: " + (health.machine.reasons || []).join(", ") +
+        ". Click Prepare this PC or Start All — the app will reconfigure paths, ports, and Chrome for this machine.";
+    } else {
+      banner.hidden = true;
+    }
+  }
+
   const badge = document.getElementById("overall-badge");
   const detail = document.getElementById("overall-detail");
   const c = colorFor(state.overall);
@@ -312,14 +325,51 @@ document.getElementById("btn-emergency").onclick = async () => {
 };
 document.getElementById("btn-health").onclick = async () => {
   const h = await window.chromeMcp.get("/health");
+  const log = document.getElementById("heal-log");
+  if (log && h.deep?.checks) {
+    log.hidden = false;
+    log.textContent = h.deep.checks
+      .map((c) => `${c.status.toUpperCase()} ${c.id}: ${c.message}`)
+      .join("\n");
+  }
   toast(h.ok ? "Health OK" : h.primaryFailure || "Needs attention");
   refreshHome();
 };
 document.getElementById("btn-repair").onclick = async () => {
-  const r = await window.chromeMcp.post("/control/repair");
-  toast(r.message || "Repair done");
+  toast("Repairing / preparing this PC…");
+  const r = await window.chromeMcp.post("/control/prepare-pc");
+  const log = document.getElementById("heal-log");
+  if (log) {
+    log.hidden = false;
+    log.textContent = (r.steps || [])
+      .map((s) => `${s.ok ? "✓" : "✗"} ${s.step}${s.detail ? " — " + s.detail : ""}`)
+      .join("\n");
+  }
+  toast(r.ok ? "This PC is ready" : r.primaryUserAction || "Repair finished with issues");
   refreshHome();
 };
+
+async function preparePc() {
+  toast("Detecting this PC and auto-repairing…");
+  const r = await window.chromeMcp.post("/control/prepare-pc");
+  const log = document.getElementById("heal-log");
+  if (log) {
+    log.hidden = false;
+    log.textContent = (r.steps || [])
+      .map((s) => `${s.ok ? "✓" : "✗"} ${s.step}${s.detail ? " — " + s.detail : ""}`)
+      .join("\n");
+  }
+  toast(
+    r.ok
+      ? r.foreignMachine
+        ? "New PC configured successfully"
+        : "System healthy"
+      : r.primaryUserAction || "Needs your action",
+  );
+  refreshHome();
+}
+document.getElementById("btn-prepare-pc")?.addEventListener("click", preparePc);
+document.getElementById("btn-prepare-pc-2")?.addEventListener("click", preparePc);
 document.getElementById("btn-pair").onclick = () => showPage("llm");
 document.getElementById("btn-pair-create").onclick = async () => {
   const name = document.getElementById("pair-name").value || "client";

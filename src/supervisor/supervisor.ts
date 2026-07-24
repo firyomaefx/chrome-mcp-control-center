@@ -5,13 +5,20 @@ import { StateStore, type SystemSnapshot } from "./state.js";
 import { runHealthCheck, type HealthReport } from "../diagnostics/health.js";
 import { repairSystem, type RepairReport } from "../diagnostics/repair.js";
 import { AppError } from "../errors.js";
-import { connectChrome, ensureChromeConnected, type ConnectReport } from "../chrome/connect.js";
+import { connectChrome, type ConnectReport } from "../chrome/connect.js";
 import { getBridgeStatus } from "../browser/bridge.js";
+import { autoHeal, readLastHeal, type HealReport } from "../diagnostics/auto-heal.js";
+import { runDeepHealth, type DeepHealthReport } from "../diagnostics/deep-health.js";
+import { detectForeignOrStale } from "../diagnostics/machine-profile.js";
 
 export interface SupervisorOptions {
   dataDir: string;
   /** When true, do not require live extension for overall ready in tests */
   mockBridge?: boolean;
+  /** Electron absolute paths for portable host launch-config */
+  execPath?: string;
+  runtimeScript?: string;
+  extensionSource?: string;
 }
 
 /**
@@ -90,43 +97,40 @@ export class Supervisor {
         throw new AppError("EMERGENCY_STOP_ACTIVE", "Clear Emergency Stop before starting");
       }
 
-      // Native host registration check / soft repair
-      const repair = await repairSystem(this.opts.dataDir, { onlyIfNeeded: true });
-      this.state.update({
-        nativeHost: repair.nativeHostRegistered ? "running" : "failed",
+      // Full auto-heal: foreign PC, ports, stage extension, NM, connect Chrome
+      this.state.update({ lastError: "Preparing this PC / repairing…" });
+      this.emit();
+      const heal = await autoHeal({
+        dataDir: this.opts.dataDir,
+        soft: false,
+        mockBridge: this.opts.mockBridge,
+        skipChromeConnect: this.opts.mockBridge,
+        execPath: this.opts.execPath,
+        runtimeScript: this.opts.runtimeScript,
+        extensionSource: this.opts.extensionSource,
       });
 
-      // MCP "process" is in-process for stdio; mark running when server module loads.
       this.running = true;
       this.state.update({
         mcp: "running",
         permissionMode: this.cfg.permissionMode,
         emergencyStop: false,
         paused: this.cfg.paused,
-        lastError: undefined,
+        nativeHost: heal.health.nativeHost.registered ? "running" : "failed",
+        lastError: heal.ok ? undefined : heal.primaryUserAction || heal.health.primaryFailure,
       });
 
-      // Single-click: stage + launch/relaunch Chrome with extension if not connected
-      if (!this.opts.mockBridge && !getBridgeStatus().connected) {
-        this.state.update({ lastError: "Connecting Chrome extension…" });
-        this.emit();
-        const conn = await ensureChromeConnected(this.opts.dataDir);
-        if (!conn.ok) {
-          this.state.update({
-            extension: "failed",
-            overall: "needs_attention",
-            lastError: conn.error || "Extension not connected",
-          });
-          this.emit();
-          // Still return state — do not throw false Ready
-        }
-      }
-
-      // Chrome / extension health
       const health = await runHealthCheck(this.opts.dataDir, {
         mockBridge: this.opts.mockBridge,
       });
       this.applyHealth(health);
+
+      if (!heal.ok && !this.opts.mockBridge) {
+        this.state.update({
+          overall: "needs_attention",
+          lastError: heal.primaryUserAction || heal.health.primaryFailure || "Needs attention",
+        });
+      }
 
       if (this.opts.mockBridge && this.running) {
         this.state.update({
@@ -217,17 +221,62 @@ export class Supervisor {
     return report;
   }
 
-  async repair(): Promise<RepairReport> {
+  async deepHealth(): Promise<DeepHealthReport> {
+    return runDeepHealth(this.opts.dataDir, { mockBridge: this.opts.mockBridge });
+  }
+
+  async repair(): Promise<RepairReport & { heal?: HealReport }> {
+    const heal = await this.preparePc({ soft: false });
     const report = await repairSystem(this.opts.dataDir, { onlyIfNeeded: false });
-    if (!this.opts.mockBridge && !getBridgeStatus().connected) {
-      await connectChrome({ dataDir: this.opts.dataDir });
-    }
     await this.health();
-    return report;
+    return { ...report, heal, message: heal.ok ? heal.steps.map((s) => s.step).join(" → ") : report.message };
+  }
+
+  /** Prepare this PC — full auto-heal (foreign machine, ports, extension, NM). */
+  async preparePc(opts: { soft?: boolean } = {}): Promise<HealReport> {
+    this.state.update({ lastError: opts.soft ? "Soft heal…" : "Preparing this PC…" });
+    this.emit();
+    const heal = await autoHeal({
+      dataDir: this.opts.dataDir,
+      soft: opts.soft ?? false,
+      mockBridge: this.opts.mockBridge,
+      skipChromeConnect: this.opts.mockBridge || opts.soft,
+      execPath: this.opts.execPath,
+      runtimeScript: this.opts.runtimeScript,
+      extensionSource: this.opts.extensionSource,
+    });
+    await this.health();
+    if (!heal.ok) {
+      this.state.update({
+        overall: "needs_attention",
+        lastError: heal.primaryUserAction || heal.health.primaryFailure,
+      });
+    }
+    this.emit();
+    return heal;
+  }
+
+  machineStatus(): {
+    foreign: boolean;
+    reasons: string[];
+    lastHeal: HealReport | null;
+  } {
+    const d = detectForeignOrStale(this.opts.dataDir);
+    return { foreign: d.foreign, reasons: d.reasons, lastHeal: readLastHeal(this.opts.dataDir) };
   }
 
   /** Single-click Connect Chrome (auto-relaunch if needed). */
   async connectChrome(): Promise<ConnectReport> {
+    // Fix paths first on this PC
+    await autoHeal({
+      dataDir: this.opts.dataDir,
+      soft: true,
+      skipChromeConnect: true,
+      mockBridge: this.opts.mockBridge,
+      execPath: this.opts.execPath,
+      runtimeScript: this.opts.runtimeScript,
+      extensionSource: this.opts.extensionSource,
+    });
     const report = await connectChrome({
       dataDir: this.opts.dataDir,
       forceRelaunch: !getBridgeStatus().connected && !this.opts.mockBridge,

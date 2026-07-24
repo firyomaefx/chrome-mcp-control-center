@@ -26,7 +26,13 @@ export async function startHttpServer(
   const cfg0 = loadConfig(dataDir);
   const port = cfg0.httpPort;
   const runtime = createRuntime(dataDir, { mockBridge: opts.mockBridge });
-  const supervisor = new Supervisor({ dataDir, mockBridge: opts.mockBridge });
+  const supervisor = new Supervisor({
+    dataDir,
+    mockBridge: opts.mockBridge,
+    execPath: process.env.CHROME_MCP_NODE || process.execPath,
+    runtimeScript: process.env.CHROME_MCP_RUNTIME_SCRIPT,
+    extensionSource: process.env.CHROME_MCP_EXTENSION_SRC,
+  });
   const projectRoot =
     opts.projectRoot ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 
@@ -38,8 +44,40 @@ export async function startHttpServer(
     try {
       if (url.pathname === "/health") {
         const h = await supervisor.health();
+        const deep = await supervisor.deepHealth();
+        const machine = supervisor.machineStatus();
         res.statusCode = 200;
-        res.end(JSON.stringify(h));
+        res.end(
+          JSON.stringify({
+            ...h,
+            deep,
+            machine: {
+              foreign: machine.foreign,
+              reasons: machine.reasons,
+              lastHealOk: machine.lastHeal?.ok,
+              lastHealAt: machine.lastHeal ? new Date().toISOString() : undefined,
+            },
+            versions: {
+              ...(h.versions || {}),
+              app: deep.versions.app,
+            },
+          }),
+        );
+        return;
+      }
+      if (url.pathname === "/health/deep" && req.method === "GET") {
+        res.end(JSON.stringify(await supervisor.deepHealth()));
+        return;
+      }
+      if (url.pathname === "/control/prepare-pc" && req.method === "POST") {
+        const body = await readBody(req).catch(() => ({}));
+        const soft = Boolean((body as { soft?: boolean }).soft);
+        const report = await supervisor.preparePc({ soft });
+        res.end(JSON.stringify(report));
+        return;
+      }
+      if (url.pathname === "/control/machine" && req.method === "GET") {
+        res.end(JSON.stringify(supervisor.machineStatus()));
         return;
       }
 

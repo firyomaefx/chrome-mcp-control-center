@@ -1,6 +1,15 @@
 # Changelog
 
-## 1.0.3 — 2026-07-21 (Portability + cloud sync)
+## 1.0.3 — 2026-07-24 (Self-heal + portability)
+
+### Self-heal on another PC
+
+- Machine fingerprint + foreign-PC detection (`machine-profile.json`)
+- Deep health matrix (consent, port, launch paths, NM, extension, cloud soft)
+- **Prepare this PC** / Start All runs auto-heal playbook
+- Auto-fix: stale paths, port conflicts, stage extension, re-register NM, Connect Chrome
+- Home banner when a different PC is detected
+- Heal step log on dashboard
 
 ### Portability (other PCs)
 

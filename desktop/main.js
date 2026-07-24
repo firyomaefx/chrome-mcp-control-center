@@ -137,6 +137,8 @@ function startRuntime() {
       CHROME_MCP_MOCK: useMock ? "1" : "0",
       CHROME_MCP_EXTENSION_SRC: packagedExt,
       CHROME_MCP_NODE: process.execPath,
+      CHROME_MCP_RUNTIME_SCRIPT: script,
+      CHROME_MCP_APP_PATH: app.isPackaged ? process.resourcesPath : path.join(__dirname, ".."),
     },
     stdio: ["ignore", "pipe", "pipe"],
   });

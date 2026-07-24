@@ -22,6 +22,13 @@
 
 Auto-relaunch Chrome when extension not connected (no confirm dialog).
 
+## Self-heal (new / other PC)
+
+- Detects foreign machine or stale absolute paths
+- **Prepare this PC** or **Start All** rewrites launch-config, ports, extension stage, NM, Chrome connect
+- Deep health: `/health` includes `deep` checks + `machine.foreign`
+- Docs: `docs/PORTABILITY.md` → “Moved to another PC?”
+
 ## Cloud improvement sync (Free + Paid)
 
 - Free is **not** local-only: mandatory operational sync after DPA consent.
