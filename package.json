@@ -27,8 +27,10 @@
     "desktop": "npm run build && npm run bundle:runtime && npm --prefix desktop start",
     "desktop:pack": "npm run build && npm run bundle:runtime && npm --prefix desktop run dist && node scripts/obsidian-export.mjs",
     "obsidian:export": "node scripts/obsidian-export.mjs",
+    "smoke:portability": "node scripts/smoke-portability.mjs",
     "health": "node dist/cli.js health",
-    "repair": "node dist/cli.js repair"
+    "repair": "node dist/cli.js repair",
+    "pretest": "node scripts/smoke-portability.mjs"
   },
   "keywords": [
     "mcp",

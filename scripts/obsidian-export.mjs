@@ -78,6 +78,7 @@ const EXPORT_MAP = [
   { src: "docs/USER_GUIDE.md", dest: "USER_GUIDE.md", title: "User guide" },
   { src: "docs/OBSIDIAN.md", dest: "OBSIDIAN.md", title: "Obsidian integration" },
   { src: "docs/CLOUD_SYNC.md", dest: "CLOUD_SYNC.md", title: "Cloud improvement sync" },
+  { src: "docs/PORTABILITY.md", dest: "PORTABILITY.md", title: "Portability" },
   { src: "docs/adr/0001-electron-control-center.md", dest: "ADR-0001-electron.md", title: "ADR 0001 Electron" },
   { src: "docs/adr/0002-native-messaging.md", dest: "ADR-0002-native-messaging.md", title: "ADR 0002 Native Messaging" },
 ];
@@ -210,8 +211,14 @@ function buildDecisions(outDir) {
 function main() {
   const vault = loadVaultPath();
   if (!fs.existsSync(vault)) {
-    console.error(`Obsidian vault not found: ${vault}`);
-    process.exit(1);
+    const required = process.env.CHROME_MCP_OBSIDIAN_REQUIRED === "1";
+    console.warn(
+      `[obsidian-export] Vault not found (${vault}). Skipping export so builds work on any PC.`,
+    );
+    console.warn(
+      `[obsidian-export] Set OBSIDIAN_VAULT or CHROME_MCP_OBSIDIAN_PROJECT to enable. Required-fail only if CHROME_MCP_OBSIDIAN_REQUIRED=1.`,
+    );
+    process.exit(required ? 1 : 0);
   }
   const outDir =
     process.env.CHROME_MCP_OBSIDIAN_PROJECT ||

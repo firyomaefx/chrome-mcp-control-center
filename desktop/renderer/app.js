@@ -432,9 +432,23 @@ window.chromeMcp.onRuntimeStatus((s) => {
   document.getElementById("runtime-pill").textContent = "Runtime: " + s.status + (s.message ? " — " + s.message : "");
 });
 
-// boot
-showPage("home");
-refreshHome();
+// boot — force consent page if DPA not accepted (clean PC first run)
+async function boot() {
+  try {
+    const st = await window.chromeMcp.get("/cloud/status");
+    if (!st.consent?.accepted) {
+      showPage("cloud");
+      toast("Accept the data agreement before using the app");
+      refreshCloud();
+      return;
+    }
+  } catch {
+    /* runtime still starting */
+  }
+  showPage("home");
+  refreshHome();
+}
+boot();
 window.chromeMcp.runtimeStatus().then((s) => {
   document.getElementById("runtime-pill").textContent = "Runtime: " + s.status;
 });

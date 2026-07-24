@@ -3,13 +3,14 @@
     "chrome-mcp": {
       "command": "node",
       "args": [
-        "C:/Users/Pedot/chrome-mcp-control-center/dist/cli.js",
+        "%REPO%/dist/cli.js",
         "serve"
       ],
       "env": {
         "CHROME_MCP_TOKEN": "REPLACE_WITH_PAIRED_TOKEN",
-        "CHROME_MCP_DATA_DIR": "C:/Users/Pedot/AppData/Roaming/Chrome MCP Control Center/data",
-        "CHROME_MCP_MOCK": "0"
+        "CHROME_MCP_DATA_DIR": "%APPDATA%/Chrome MCP Control Center/data",
+        "CHROME_MCP_MOCK": "0",
+        "CHROME_MCP_CLOUD_URL": "http://127.0.0.1:8788/v1/ingest"
       }
     }
   }

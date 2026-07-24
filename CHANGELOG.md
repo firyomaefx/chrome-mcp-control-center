@@ -1,6 +1,17 @@
 # Changelog
 
-## 1.0.3 — 2026-07-21 (Cloud improvement sync)
+## 1.0.3 — 2026-07-21 (Portability + cloud sync)
+
+### Portability (other PCs)
+
+- Obsidian export no longer fails `npm run build` when vault is missing
+- Native host launcher uses absolute Electron/Node paths + `host` CLI entry
+- Electron writes `launch-config.json` for portable NM host
+- Generic install/pairing samples (no machine-specific paths)
+- `npm run smoke:portability` + pretest gate
+- Desktop version aligned to 1.0.3
+
+### Cloud improvement sync
 
 ### Added
 

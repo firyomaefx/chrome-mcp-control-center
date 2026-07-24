@@ -18,6 +18,10 @@ async function main(): Promise<void> {
   ensureDataDirs(dataDir);
 
   switch (cmd) {
+    case "host":
+      // Chrome Native Messaging host (portable entry for packaged + dev)
+      await import("./native-host/host.js");
+      break;
     case "serve":
     case undefined:
       // default: stdio MCP

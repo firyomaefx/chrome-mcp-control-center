@@ -78,13 +78,69 @@ export function hostLauncherPath(dataDir: string): string {
   return path.join(dir, "chrome-mcp-host.cmd");
 }
 
-export function writeHostLauncher(dataDir: string, nodeScript: string): string {
+/**
+ * Prefer absolute Node/Electron binary so other PCs do not depend on PATH `node`.
+ * When running under Electron (ELECTRON_RUN_AS_NODE or packaged), use process.execPath.
+ */
+export function resolveNodeBinary(): string {
+  if (process.env.CHROME_MCP_NODE && fs.existsSync(process.env.CHROME_MCP_NODE)) {
+    return process.env.CHROME_MCP_NODE;
+  }
+  // Electron main/runtime often has ELECTRON_RUN_AS_NODE=1 and execPath is usable as node
+  if (process.env.ELECTRON_RUN_AS_NODE === "1" || process.versions.electron) {
+    return process.execPath;
+  }
+  // Standard Node process
+  if (process.execPath && fs.existsSync(process.execPath)) {
+    return process.execPath;
+  }
+  return "node";
+}
+
+export function writeHostLauncher(
+  dataDir: string,
+  nodeScript: string,
+  extraArgs: string[] = [],
+  nodeBinOverride?: string,
+): string {
   const cmdPath = hostLauncherPath(dataDir);
-  // Use process.execPath when ELECTRON_RUN_AS_NODE, else node
-  const nodeBin = process.env.CHROME_MCP_NODE || "node";
-  const content = `@echo off\r\n"${nodeBin}" "${nodeScript.replace(/\//g, "\\")}" %*\r\n`;
+  const nodeBin = nodeBinOverride || resolveNodeBinary();
+  const parts = [nodeScript, ...extraArgs].map((p) => `"${String(p).replace(/\//g, "\\")}"`);
+  // When using Electron binary, force node mode for host script
+  const electronAsNode =
+    /electron/i.test(nodeBin) ||
+    /Chrome MCP/i.test(nodeBin) ||
+    process.env.ELECTRON_RUN_AS_NODE === "1" ||
+    Boolean(process.versions.electron);
+  const content = electronAsNode
+    ? `@echo off\r\nset ELECTRON_RUN_AS_NODE=1\r\n"${nodeBin.replace(/\//g, "\\")}" ${parts.join(" ")} %*\r\n`
+    : `@echo off\r\n"${nodeBin.replace(/\//g, "\\")}" ${parts.join(" ")} %*\r\n`;
   fs.writeFileSync(cmdPath, content, "utf8");
   return cmdPath;
+}
+
+export interface HostLaunchConfig {
+  execPath: string;
+  runtimeScript: string;
+  args?: string[];
+}
+
+export function writeHostLaunchConfig(dataDir: string, cfg: HostLaunchConfig): string {
+  const dir = path.join(dataDir, "native-host");
+  fs.mkdirSync(dir, { recursive: true });
+  const p = path.join(dir, "launch-config.json");
+  fs.writeFileSync(p, JSON.stringify(cfg, null, 2), "utf8");
+  return p;
+}
+
+export function readHostLaunchConfig(dataDir: string): HostLaunchConfig | null {
+  const p = path.join(dataDir, "native-host", "launch-config.json");
+  if (!fs.existsSync(p)) return null;
+  try {
+    return JSON.parse(fs.readFileSync(p, "utf8")) as HostLaunchConfig;
+  } catch {
+    return null;
+  }
 }
 
 export function windowsVersion(): string {

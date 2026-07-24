@@ -16,11 +16,10 @@ import {
   writeHostLauncher,
   writeNativeHostManifest,
 } from "../diagnostics/windows.js";
-import { repairSystem } from "../diagnostics/repair.js";
+import { repairSystem, resolvePortableHostLaunch } from "../diagnostics/repair.js";
 import { stageExtension } from "./stage-extension.js";
 import { packExtensionCrx, writeUpdateXml } from "./pack-crx.js";
 import { applyForceInstallPolicy } from "./policy.js";
-import { fileURLToPath } from "node:url";
 
 export interface ConnectReport {
   ok: boolean;
@@ -145,13 +144,12 @@ export async function waitForExtensionConnected(
 function rebindNativeHost(dataDir: string, extensionId?: string): string[] {
   const steps: string[] = [];
   try {
-    const here = path.dirname(fileURLToPath(import.meta.url));
-    const hostJs = path.resolve(here, "..", "native-host", "host.js");
-    const launcher = writeHostLauncher(dataDir, hostJs);
+    const launch = resolvePortableHostLaunch(dataDir);
+    const launcher = writeHostLauncher(dataDir, launch.script, launch.args, launch.bin);
     const ids = extensionId ? [extensionId] : [];
     const manifestPath = writeNativeHostManifest(dataDir, launcher, ids);
     registerNativeHost(manifestPath);
-    steps.push(`Native host rebound for extension ${extensionId || "(pending id)"}`);
+    steps.push(`Native host rebound for extension ${extensionId || "(pending id)"} (${launch.note})`);
   } catch (e) {
     steps.push(`Native host rebind warning: ${e instanceof Error ? e.message : String(e)}`);
   }

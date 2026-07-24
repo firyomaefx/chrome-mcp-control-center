@@ -6,14 +6,14 @@ The Control Center generates configs. You should not hand-edit JSON unless you w
 
 Pairing writes an MCP server entry pointing at the packaged `chrome-mcp` stdio binary (or `node dist/cli.js serve` in dev).
 
-Example (generated):
+Example (generated — paths are absolute on **your** machine):
 
 ```json
 {
   "mcpServers": {
     "chrome-mcp": {
       "command": "node",
-      "args": ["C:/Users/Pedot/chrome-mcp-control-center/dist/cli.js", "serve"],
+      "args": ["<path-to-repo>/dist/cli.js", "serve"],
       "env": {
         "CHROME_MCP_TOKEN": "<generated>",
         "CHROME_MCP_DATA_DIR": "%APPDATA%/Chrome MCP Control Center/data"
@@ -22,6 +22,8 @@ Example (generated):
   }
 }
 ```
+
+Replace `<path-to-repo>` with your clone path, or use the **Pair LLM** button so the app fills it in.
 
 ## Claude Desktop / Claude Code
 

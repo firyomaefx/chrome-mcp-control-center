@@ -1,45 +1,78 @@
 # Installation
 
-## End user (packaged)
+**Supported:** Windows 10/11 x64, Google Chrome installed, network optional (cloud sync queues offline).
 
-### Portable (recommended until code signing is available)
+## End user (packaged — recommended)
 
-1. Download `ChromeMCPControlCenter-*-portable.exe` from GitHub Releases.  
-2. Run it (Windows may warn if unsigned — verify the download channel).  
-3. Click **Start All** (or **Connect Chrome**).  
-4. Chrome may **relaunch once** so the extension can load into your real profile (logins stay; tabs usually restore).  
-5. Status becomes **Ready** when the extension registers — no manual Load unpacked for the normal path.  
+### Portable
+
+1. Download `ChromeMCPControlCenter-*-portable.exe` from [GitHub Releases](https://github.com/firyomaefx/chrome-mcp-control-center/releases).  
+2. Run it (Windows SmartScreen may warn if unsigned).  
+3. Complete the wizard — **accept the data agreement** (required).  
+4. Click **Start All**.  
+5. Chrome may relaunch once so the extension can load.  
+6. Status **Ready** when the extension is connected.  
 
 ### NSIS installer
 
-`ChromeMCPControlCenter-Setup-*.exe` creates a desktop shortcut. Same Start All flow.
+`ChromeMCPControlCenter-Setup-*.exe` creates a desktop shortcut. Same flow as portable.
 
-### Dev unpacked
+### Dev unpacked (after packaging on a build machine)
 
 ```
 desktop/release/win-unpacked/Chrome MCP Control Center.exe
 ```
 
-## Developer (from source)
+---
+
+## Developer (from source on any PC)
+
+Requires **Node.js 20+** and npm. Obsidian is **not** required.
 
 ```powershell
-cd C:\Users\Pedot\chrome-mcp-control-center
+git clone https://github.com/firyomaefx/chrome-mcp-control-center.git
+cd chrome-mcp-control-center
 npm install
 npm run build
 npm test
 npm run desktop
 ```
 
-### Load extension (unpacked)
+Environment (optional):
 
-1. Chrome → Extensions → Developer mode  
-2. Load unpacked → select `extension/`  
-3. Copy extension ID into Control Center → Chrome → Repair Native Messaging  
+| Variable | Purpose |
+|----------|---------|
+| `CHROME_MCP_DATA_DIR` | Override user data folder |
+| `CHROME_MCP_HTTP_PORT` | Default `18787` |
+| `CHROME_MCP_CLOUD_URL` | Sync ingest URL (default loopback) |
+| `CHROME_MCP_ALLOW_NO_CONSENT` | `1` for CI only |
+| `CHROME_PATH` | Override Chrome executable |
+| `OBSIDIAN_VAULT` | Optional docs export target |
 
-### Package installer
+### Package installers
 
 ```powershell
 npm run desktop:pack
 ```
 
-Output under `desktop/release/`.
+Output: `desktop/release/` (portable + NSIS).
+
+### Owner cloud backend (optional)
+
+```powershell
+$env:CHROME_MCP_OWNER_KEY = "change-me"
+npm run cloud:backend
+# http://127.0.0.1:8788/
+```
+
+---
+
+## First-run checklist (other PC)
+
+1. [ ] Chrome installed  
+2. [ ] Data agreement accepted  
+3. [ ] Start All  
+4. [ ] Extension connected (badge OK)  
+5. [ ] Pair LLM if using Grok/Claude/Codex  
+
+See [docs/PORTABILITY.md](docs/PORTABILITY.md).

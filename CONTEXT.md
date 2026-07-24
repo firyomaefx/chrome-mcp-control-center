@@ -31,11 +31,10 @@ Auto-relaunch Chrome when extension not connected (no confirm dialog).
 
 ## Obsidian
 
-Vault: `C:\Users\Pedot\OneDrive\Obsidian\TTRG`  
-Project notes: `10-Projects/chrome-mcp-control-center/`  
+Default vault (this machine): OneDrive TTRG → `10-Projects/chrome-mcp-control-center/`.  
+On other PCs export is **skipped** unless `OBSIDIAN_VAULT` is set (does not fail build).
 
 ```powershell
 npm run obsidian:export
+npm run smoke:portability
 ```
-
-Also runs on `postbuild` and after `desktop:pack`. Never exports tokens, pairing secrets, or private logs.

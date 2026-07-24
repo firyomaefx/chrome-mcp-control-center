@@ -103,6 +103,28 @@ function startRuntime() {
     ? path.join(process.resourcesPath, "extension")
     : path.join(__dirname, "..", "extension");
 
+  // Portable native-host launch config for any PC (absolute paths, Electron-as-node)
+  try {
+    const nhDir = path.join(dataDir(), "native-host");
+    fs.mkdirSync(nhDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(nhDir, "launch-config.json"),
+      JSON.stringify(
+        {
+          execPath: process.execPath,
+          runtimeScript: script,
+          args: ["host"],
+          writtenAt: new Date().toISOString(),
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+  } catch (e) {
+    console.error("[native-host] launch-config write failed", e);
+  }
+
   // Default: real extension HTTP bridge. Set CHROME_MCP_MOCK=1 only for offline demo.
   const useMock = process.env.CHROME_MCP_MOCK === "1";
   const args = useMock ? ["serve-http", "--mock"] : ["serve-http"];
@@ -114,6 +136,7 @@ function startRuntime() {
       CHROME_MCP_HTTP_PORT: String(HTTP_PORT),
       CHROME_MCP_MOCK: useMock ? "1" : "0",
       CHROME_MCP_EXTENSION_SRC: packagedExt,
+      CHROME_MCP_NODE: process.execPath,
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
