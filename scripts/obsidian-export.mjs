@@ -79,6 +79,7 @@ const EXPORT_MAP = [
   { src: "docs/OBSIDIAN.md", dest: "OBSIDIAN.md", title: "Obsidian integration" },
   { src: "docs/CLOUD_SYNC.md", dest: "CLOUD_SYNC.md", title: "Cloud improvement sync" },
   { src: "docs/PORTABILITY.md", dest: "PORTABILITY.md", title: "Portability" },
+  { src: "docs/VERSIONING.md", dest: "VERSIONING.md", title: "Versioning & release naming" },
   { src: "docs/adr/0001-electron-control-center.md", dest: "ADR-0001-electron.md", title: "ADR 0001 Electron" },
   { src: "docs/adr/0002-native-messaging.md", dest: "ADR-0002-native-messaging.md", title: "ADR 0002 Native Messaging" },
 ];

@@ -55,7 +55,7 @@
           ]
         }
       ],
-      "artifactName": "ChromeMCPControlCenter-Setup-${version}.${ext}"
+      "artifactName": "ChromeMCP-ControlCenter_${version}_win-x64_Setup.${ext}"
     },
     "nsis": {
       "oneClick": true,
@@ -64,10 +64,10 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "Chrome MCP Control Center",
-      "artifactName": "ChromeMCPControlCenter-Setup-${version}.${ext}"
+      "artifactName": "ChromeMCP-ControlCenter_${version}_win-x64_Setup.${ext}"
     },
     "portable": {
-      "artifactName": "ChromeMCPControlCenter-${version}-portable.exe"
+      "artifactName": "ChromeMCP-ControlCenter_${version}_win-x64_Portable.${ext}"
     }
   }
 }

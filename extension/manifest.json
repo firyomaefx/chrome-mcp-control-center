@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Chrome MCP Control Center",
-  "version": "1.0.0",
+  "version": "1.0.3",
   "description": "Connects Chrome to the local Chrome MCP Control Center for safe browser automation.",
   "permissions": [
     "nativeMessaging",
@@ -12,7 +12,9 @@
     "downloads",
     "alarms"
   ],
-  "host_permissions": ["<all_urls>"],
+  "host_permissions": [
+    "<all_urls>"
+  ],
   "background": {
     "service_worker": "background.js",
     "type": "module"

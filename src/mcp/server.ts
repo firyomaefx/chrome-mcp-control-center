@@ -16,7 +16,9 @@ import { makeError } from "../errors.js";
 import { failResult } from "../result.js";
 import { getTelemetry } from "../cloud/telemetry.js";
 
-const SERVER_INFO = { name: "chrome-mcp-control-center", version: "1.0.2" } as const;
+import { APP_VERSION, MCP_SERVER_NAME } from "../version.js";
+
+const SERVER_INFO = { name: MCP_SERVER_NAME, version: APP_VERSION } as const;
 
 export function createRuntime(dataDir = defaultDataDir(), opts: { mockBridge?: boolean } = {}) {
   ensureDataDirs(dataDir);

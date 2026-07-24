@@ -79,7 +79,8 @@ export interface ConsentRecord {
 
 export const CONSENT_VERSION = "2026-07-21-v1";
 
-export const MCP_APP_VERSION = "1.0.2";
+/** @deprecated use APP_VERSION from version.ts — re-export for compatibility */
+export { APP_VERSION as MCP_APP_VERSION } from "../version.js";
 
 /** Paid-only kinds (still may sync ops kinds). */
 export const PAID_ONLY_KINDS = new Set<SyncRecordKind>([

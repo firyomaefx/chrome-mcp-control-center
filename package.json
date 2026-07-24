@@ -28,6 +28,10 @@
     "desktop:pack": "npm run build && npm run bundle:runtime && npm --prefix desktop run dist && node scripts/obsidian-export.mjs",
     "obsidian:export": "node scripts/obsidian-export.mjs",
     "smoke:portability": "node scripts/smoke-portability.mjs",
+    "version:sync": "node scripts/sync-version.mjs",
+    "version:patch": "npm version patch --no-git-tag-version && node scripts/sync-version.mjs",
+    "version:minor": "npm version minor --no-git-tag-version && node scripts/sync-version.mjs",
+    "version:major": "npm version major --no-git-tag-version && node scripts/sync-version.mjs",
     "health": "node dist/cli.js health",
     "repair": "node dist/cli.js repair",
     "pretest": "node scripts/smoke-portability.mjs"

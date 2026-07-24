@@ -72,10 +72,28 @@ const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"))
 const eng = pkg.engines?.node || "";
 if (!eng.includes("20")) warn.push(`engines.node should require >=20 (have ${eng})`);
 
-// 6) desktop version alignment
+// 6) desktop / VERSION / extension / src/version alignment
 const desk = JSON.parse(fs.readFileSync(path.join(root, "desktop", "package.json"), "utf8"));
 if (desk.version !== pkg.version) {
   bad.push(`version skew root=${pkg.version} desktop=${desk.version}`);
+}
+const verFile = fs.readFileSync(path.join(root, "VERSION"), "utf8").trim();
+if (verFile !== pkg.version) {
+  bad.push(`version skew root=${pkg.version} VERSION=${verFile}`);
+}
+const verTs = fs.readFileSync(path.join(root, "src", "version.ts"), "utf8");
+if (!verTs.includes(`APP_VERSION = "${pkg.version}"`)) {
+  bad.push(`src/version.ts APP_VERSION does not match package.json ${pkg.version}`);
+}
+const extMan = JSON.parse(fs.readFileSync(path.join(root, "extension", "manifest.json"), "utf8"));
+const baseVer = pkg.version.replace(/-.*$/, "");
+if (extMan.version !== baseVer) {
+  bad.push(`extension manifest ${extMan.version} != base ${baseVer}`);
+}
+// artifact naming pattern
+const art = desk.build?.portable?.artifactName || "";
+if (!art.includes("ChromeMCP-ControlCenter_") || !art.includes("win-x64")) {
+  warn.push(`portable artifactName should use ChromeMCP-ControlCenter_{version}_win-x64_Portable (have ${art})`);
 }
 
 if (warn.length) {

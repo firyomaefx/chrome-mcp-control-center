@@ -8,6 +8,7 @@ import path from "node:path";
 import os from "node:os";
 import { defaultDataDir, ensureDataDirs, loadConfig } from "../config.js";
 import { bridge } from "../browser/bridge.js";
+import { APP_VERSION } from "../version.js";
 
 const MAX = 1024 * 1024;
 
@@ -157,7 +158,7 @@ async function main(): Promise<void> {
     }
 
     if (m.type === "hello" || m.type === "heartbeat") {
-      writeMessage({ id: m.id ?? "hello", ok: true, type: "response", data: { version: "1.0.0" } });
+      writeMessage({ id: m.id ?? "hello", ok: true, type: "response", data: { version: APP_VERSION } });
       continue;
     }
 
@@ -223,7 +224,7 @@ async function run(): Promise<void> {
           id: msg.id ?? "ok",
           ok: true,
           type: "response",
-          data: { version: "1.0.0", emergencyStop: cfg.emergencyStop },
+          data: { version: APP_VERSION, emergencyStop: cfg.emergencyStop },
         });
       } else if (msg.type === "response") {
         bridge.handleExtensionMessage(msg);

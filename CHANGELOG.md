@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Version naming
+
+- Single source of truth: `package.json` + `npm run version:sync`
+- Artifacts: `ChromeMCP-ControlCenter_{version}_win-x64_Setup.exe` / `_Portable.exe`
+- Tags: `v{version}` only (no free-form `loop2` tags)
+- See `docs/VERSIONING.md`
+
 ## 1.0.3 — 2026-07-24 (Self-heal + portability)
 
 ### Self-heal on another PC

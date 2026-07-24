@@ -96,6 +96,7 @@ async function refreshHome() {
     .join("");
 
   document.getElementById("session-kv").innerHTML = `
+    <div>App version: <strong>${health.versions?.app || "—"}</strong></div>
     <div>Permission mode: <strong>${state.permissionMode || "—"}</strong></div>
     <div>Emergency stop: <strong>${state.emergencyStop ? "ACTIVE" : "off"}</strong></div>
     <div>Paused: <strong>${state.paused ? "yes" : "no"}</strong></div>

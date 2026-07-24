@@ -42,6 +42,22 @@ Living status: [CONTEXT.md](CONTEXT.md).
 See [SECURITY.md](SECURITY.md) and [THREAT_MODEL.md](THREAT_MODEL.md).  
 Webpage content is untrusted. Passwords and payment data never return to the LLM.
 
+## Versioning
+
+SemVer **MAJOR.MINOR.PATCH**. One number everywhere (app, extension, installers, GitHub tag).
+
+```powershell
+npm run version:patch    # or version:minor / version:major
+npm run version:sync     # sync desktop, extension, VERSION, src/version.ts
+```
+
+Installers (from next pack):
+
+- `ChromeMCP-ControlCenter_1.0.4_win-x64_Setup.exe`
+- `ChromeMCP-ControlCenter_1.0.4_win-x64_Portable.exe`
+
+Details: [docs/VERSIONING.md](docs/VERSIONING.md).
+
 ## Cloud improvement sync
 
 Free and Paid both sync **operational** telemetry to the owner backend (after consent). Free is not local-only for diagnostics. Secrets are never uploaded.

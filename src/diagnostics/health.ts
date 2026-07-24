@@ -4,6 +4,7 @@ import os from "node:os";
 import { loadConfig } from "../config.js";
 import { isNativeHostRegistered, findChromePath } from "./windows.js";
 import { getBridgeStatus } from "../browser/bridge.js";
+import { APP_VERSION } from "../version.js";
 
 export interface HealthReport {
   ok: boolean;
@@ -82,7 +83,7 @@ export async function runHealthCheck(
     ports: { httpPort: cfg.httpPort, conflict: false },
     disk: { ok: fs.existsSync(dataDir), dataDir },
     versions: {
-      app: "1.0.3",
+      app: APP_VERSION,
       node: process.version,
       platform: `${os.platform()} ${os.release()}`,
     },
